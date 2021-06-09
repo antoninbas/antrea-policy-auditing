@@ -53,12 +53,5 @@ func (k *Kubernetes) GetK8sPolicies() (*networking.NetworkPolicyList, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to list network policies")
 	}
-	// for _, np := range l.Items {
-	// 	y, err := yaml.JSONToYAML([]byte(np.Annotations["kubectl.kubernetes.io/last-applied-configuration"]))
-	// 	if err != nil {
-	// 		return nil, errors.Wrapf(err, "unable to convert network policy object")
-	// 	}
-	// 	fmt.Println(string(y))
-	// }
 	return l, nil
 }

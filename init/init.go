@@ -17,7 +17,7 @@ import (
 var directory string
 var namespaces []string
 
-func SetupRepo() (error) {
+func SetupRepo(k *Kubernetes) (error) {
     if directory == "" {
         path, err := os.Getwd()
         if err != nil {
@@ -39,27 +39,8 @@ func SetupRepo() (error) {
     os.Mkdir(directory + "/network-policy-repository/antrea-policy", 0700)
     os.Mkdir(directory + "/network-policy-repository/antrea-cluster-policy", 0700)
 
-	k8s, err := NewKubernetes()
-	if err != nil {
-		fmt.Println("something went wrong when setting up the kube client")
-	}
-
-	policies, err := k8s.GetK8sPolicies()
-	for _, np := range policies.Items {
-		if !stringInSlice(np.Namespace, namespaces) {
-			namespaces = append(namespaces, np.Namespace)
-			os.Mkdir(directory + "/network-policy-repository/k8s-policy/" + np.Namespace, 0700)
-		}
-		path := directory + "/network-policy-repository/k8s-policy/" + np.Namespace + "/" + np.Name + ".yaml"
-		fmt.Println(path)
-		y, err := yaml.JSONToYAML([]byte(np.Annotations["kubectl.kubernetes.io/last-applied-configuration"]))
-		if err != nil {
-			return errors.Wrapf(err, "unable to convert network policy object")
-		}
-		err = ioutil.WriteFile(path, y, 0644)
-		if err != nil {
-			return errors.Wrapf(err, "unable to write policy config to file")
-		}
+	if err := addPolicies(k); err != nil {
+		return errors.WithMessagef(err, "couldn't write network policies")
 	}
 
     _, err = w.Add(".")
@@ -80,6 +61,51 @@ func SetupRepo() (error) {
 	return nil
 }
 
+func addPolicies(k *Kubernetes) error {
+	if err := addK8sPolicies(k); err != nil {
+		return err
+	}
+	if err := addAntreaPolicies(k); err != nil {
+		return err
+	}
+	if err := addAntreaClusterPolicies(k); err != nil {
+		return err
+	}
+	return nil
+}
+
+func addK8sPolicies(k *Kubernetes) error {
+	policies, err := k.GetK8sPolicies()
+	if err != nil {
+		return err
+	}
+	for _, np := range policies.Items {
+		if !stringInSlice(np.Namespace, namespaces) {
+			namespaces = append(namespaces, np.Namespace)
+			os.Mkdir(directory + "/network-policy-repository/k8s-policy/" + np.Namespace, 0700)
+		}
+		path := directory + "/network-policy-repository/k8s-policy/" + np.Namespace + "/" + np.Name + ".yaml"
+		fmt.Println(path)
+		y, err := yaml.JSONToYAML([]byte(np.Annotations["kubectl.kubernetes.io/last-applied-configuration"]))
+		if err != nil {
+			return errors.Wrapf(err, "unable to convert network policy object")
+		}
+		err = ioutil.WriteFile(path, y, 0644)
+		if err != nil {
+			return errors.Wrapf(err, "unable to write policy config to file")
+		}
+	}
+	return nil
+}
+
+func addAntreaPolicies(k *Kubernetes) error {
+	return nil
+}
+
+func addAntreaClusterPolicies(k *Kubernetes) error {
+	return nil
+}
+
 func stringInSlice(a string, list []string) bool {
     for _, b := range list {
         if b == a {
@@ -90,8 +116,12 @@ func stringInSlice(a string, list []string) bool {
 }
 
 func main() {
-	err := SetupRepo()
+	k8s, err := NewKubernetes()
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
+	}
+	
+	if err := SetupRepo(k8s); err != nil {
+		fmt.Println(err)
 	}
 }
