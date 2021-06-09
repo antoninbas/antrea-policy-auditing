@@ -15,6 +15,7 @@ import (
 )
 
 var directory string
+var namespaces []string
 
 func SetupRepo() (error) {
     if directory == "" {
@@ -34,9 +35,9 @@ func SetupRepo() (error) {
 		return errors.WithMessagef(err, "could not intialize git worktree")
 	}
 
-    os.Mkdir(directory+"/network-policy-repository/k8s-policy", 0700)
-    os.Mkdir(directory+"/network-policy-repository/antrea-policy", 0700)
-    os.Mkdir(directory+"/network-policy-repository/antrea-cluster-policy", 0700)
+    os.Mkdir(directory + "/network-policy-repository/k8s-policy", 0700)
+    os.Mkdir(directory + "/network-policy-repository/antrea-policy", 0700)
+    os.Mkdir(directory + "/network-policy-repository/antrea-cluster-policy", 0700)
 
 	k8s, err := NewKubernetes()
 	if err != nil {
@@ -45,7 +46,11 @@ func SetupRepo() (error) {
 
 	policies, err := k8s.GetK8sPolicies()
 	for _, np := range policies.Items {
-		path := directory + "/network-policy-repository/k8s-policy/" + np.Name + ".yaml"
+		if !stringInSlice(np.Namespace, namespaces) {
+			namespaces = append(namespaces, np.Namespace)
+			os.Mkdir(directory + "/network-policy-repository/k8s-policy/" + np.Namespace, 0700)
+		}
+		path := directory + "/network-policy-repository/k8s-policy/" + np.Namespace + "/" + np.Name + ".yaml"
 		fmt.Println(path)
 		y, err := yaml.JSONToYAML([]byte(np.Annotations["kubectl.kubernetes.io/last-applied-configuration"]))
 		if err != nil {
@@ -56,15 +61,14 @@ func SetupRepo() (error) {
 			return errors.Wrapf(err, "unable to write policy config to file")
 		}
 	}
-	//add netpols to k8s-policy
 
-    Info("git add .")
+    fmt.Println("git add .")
     _, err = w.Add(".")
     if err != nil {
 		return errors.WithMessagef(err, "couldn't git add changes")
 	}
 
-    Info("git commit -m \"test commit number 1a\"")
+    fmt.Println("git commit -m \"test commit number 1a\"")
     _, err = w.Commit("test commit number 1a", &git.CommitOptions{
         Author: &object.Signature{
             Name:  "John Doe",
@@ -76,6 +80,15 @@ func SetupRepo() (error) {
 		return errors.WithMessagef(err, "couldn't git commit changes")
 	}
 	return nil
+}
+
+func stringInSlice(a string, list []string) bool {
+    for _, b := range list {
+        if b == a {
+            return true
+        }
+    }
+    return false
 }
 
 func main() {
