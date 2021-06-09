@@ -1,73 +1,86 @@
 package main
 
 import (
-	"fmt"
-	"k8s.io/client-go/rest"
-	"os"
-	"path/filepath"
-	"context"
+    "fmt"
+    "os"
+    "time"
+	"io/ioutil"
 
-	"github.com/pkg/errors"
 	"github.com/ghodss/yaml"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
+	"github.com/pkg/errors"
+    "github.com/go-git/go-git/v5"
+    "github.com/go-git/go-git/v5/plumbing/object"
+
+    . "audit_init/setup"
 )
 
-type Kubernetes struct {
-	podCache  map[string][]v1.Pod
-	ClientSet *kubernetes.Clientset
-}
+var directory string
 
-func NewKubernetes() (*Kubernetes, error) {
-	clientSet, err := Client()
-	if err != nil {
-		return nil, errors.WithMessagef(err, "unable to instantiate kube client")
+func SetupRepo() (error) {
+    if directory == "" {
+        path, err := os.Getwd()
+        if err != nil {
+            return errors.WithMessagef(err, "could not retrieve the current working directory")
+        }
+        directory = path
+    }
+    os.Mkdir(directory+"network-policy-repository", 0700)
+    r, err := git.PlainInit(directory+"/network-policy-repository/", false)
+    if err != nil {
+		return errors.WithMessagef(err, "could not initialize git repo")
 	}
-	return &Kubernetes{
-		podCache:  map[string][]v1.Pod{},
-		ClientSet: clientSet,
-	}, nil
-}
+    w, err := r.Worktree()
+    if err != nil {
+		return errors.WithMessagef(err, "could not intialize git worktree")
+	}
 
-func Client() (*kubernetes.Clientset, error) {
-	config, err := rest.InClusterConfig()
-	if err != nil {
-		kubeconfig := filepath.Join(
-			os.Getenv("KUBECONFIG"), //TODO: Update path based on where this file is run from
-		)
-		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
-		if err != nil {
-			return nil, errors.WithMessagef(err, "unable to build config from flags, check that your KUBECONFIG file is correct !")
-		}
-	}
-	clientset, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		return nil, errors.WithMessagef(err, "unable to instantiate clientset")
-	}
-	return clientset, nil
-}
+    os.Mkdir(directory+"/network-policy-repository/k8s-policy", 0700)
+    os.Mkdir(directory+"/network-policy-repository/antrea-policy", 0700)
+    os.Mkdir(directory+"/network-policy-repository/antrea-cluster-policy", 0700)
 
-func (k *Kubernetes) ListK8sPolicies() error {
-	l, err := k.ClientSet.NetworkingV1().NetworkPolicies("").List(context.TODO(), metav1.ListOptions{})
+	k8s, err := NewKubernetes()
 	if err != nil {
-		return errors.Wrapf(err, "unable to list network policies")
+		fmt.Println("something went wrong when setting up the kube client")
 	}
-	for _, np := range l.Items {
+
+	policies, err := k8s.GetK8sPolicies()
+	for _, np := range policies.Items {
+		path := directory + "/network-policy-repository/k8s-policy/" + np.Name + ".yaml"
+		fmt.Println(path)
 		y, err := yaml.JSONToYAML([]byte(np.Annotations["kubectl.kubernetes.io/last-applied-configuration"]))
 		if err != nil {
 			return errors.Wrapf(err, "unable to convert network policy object")
 		}
-		fmt.Println(string(y))
+		err = ioutil.WriteFile(path, y, 0644)
+		if err != nil {
+			return errors.Wrapf(err, "unable to write policy config to file")
+		}
+	}
+	//add netpols to k8s-policy
+
+    Info("git add .")
+    _, err = w.Add(".")
+    if err != nil {
+		return errors.WithMessagef(err, "couldn't git add changes")
+	}
+
+    Info("git commit -m \"test commit number 1a\"")
+    _, err = w.Commit("test commit number 1a", &git.CommitOptions{
+        Author: &object.Signature{
+            Name:  "John Doe",
+            Email: "john@doe.org",
+            When:  time.Now(),
+        },
+    })
+    if err != nil {
+		return errors.WithMessagef(err, "couldn't git commit changes")
 	}
 	return nil
 }
 
 func main() {
-	k8s, err := NewKubernetes()
+	err := SetupRepo()
 	if err != nil {
-		fmt.Printf("something went wrong")
+		panic(err)
 	}
-	k8s.ListK8sPolicies()
 }
