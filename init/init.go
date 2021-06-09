@@ -62,17 +62,15 @@ func SetupRepo() (error) {
 		}
 	}
 
-    fmt.Println("git add .")
     _, err = w.Add(".")
     if err != nil {
 		return errors.WithMessagef(err, "couldn't git add changes")
 	}
 
-    fmt.Println("git commit -m \"test commit number 1a\"")
-    _, err = w.Commit("test commit number 1a", &git.CommitOptions{
+    _, err = w.Commit("initial commit of existing policies", &git.CommitOptions{
         Author: &object.Signature{
-            Name:  "John Doe",
-            Email: "john@doe.org",
+            Name:  "audit-init",
+            Email: "system@audit.antrea.io",
             When:  time.Now(),
         },
     })
