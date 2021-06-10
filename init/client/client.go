@@ -1,4 +1,4 @@
-package client_setup
+package client
 
 import (
 	//"fmt"
