@@ -123,6 +123,27 @@ func addAntreaPolicies(k *Kubernetes) error {
 }
 
 func addAntreaClusterPolicies(k *Kubernetes) error {
+	policies, err := k.GetAntreaClusterPolicies()
+	if err != nil {
+		return err
+	}
+	var namespaces []string
+	for _, np := range policies.Items {
+		if !stringInSlice(np.Namespace, namespaces) {
+			namespaces = append(namespaces, np.Namespace)
+			os.Mkdir(directory + "/network-policy-repository/antrea-cluster-policy/" + np.Namespace, 0700)
+		}
+		path := directory + "/network-policy-repository/antrea-cluster-policy/" + np.Name + ".yaml"
+		fmt.Println(path)
+		y, err := yaml.JSONToYAML([]byte(np.Annotations["kubectl.kubernetes.io/last-applied-configuration"]))
+		if err != nil {
+			return errors.Wrapf(err, "unable to convert network policy object")
+		}
+		err = ioutil.WriteFile(path, y, 0644)
+		if err != nil {
+			return errors.Wrapf(err, "unable to write policy config to file")
+		}
+	}
 	return nil
 }
 
