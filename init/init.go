@@ -15,7 +15,6 @@ import (
 )
 
 var directory string
-var namespaces []string
 
 func SetupRepo(k *Kubernetes) (error) {
     if directory == "" {
@@ -35,11 +34,7 @@ func SetupRepo(k *Kubernetes) (error) {
 		return errors.WithMessagef(err, "could not intialize git worktree")
 	}
 
-    os.Mkdir(directory + "/network-policy-repository/k8s-policy", 0700)
-    os.Mkdir(directory + "/network-policy-repository/antrea-policy", 0700)
-    os.Mkdir(directory + "/network-policy-repository/antrea-cluster-policy", 0700)
-
-	if err := addPolicies(k); err != nil {
+	if err := addNetworkPolicies(k); err != nil {
 		return errors.WithMessagef(err, "couldn't write network policies")
 	}
 
@@ -61,7 +56,10 @@ func SetupRepo(k *Kubernetes) (error) {
 	return nil
 }
 
-func addPolicies(k *Kubernetes) error {
+func addNetworkPolicies(k *Kubernetes) error {
+    os.Mkdir(directory + "/network-policy-repository/k8s-policy", 0700)
+    os.Mkdir(directory + "/network-policy-repository/antrea-policy", 0700)
+    os.Mkdir(directory + "/network-policy-repository/antrea-cluster-policy", 0700)
 	if err := addK8sPolicies(k); err != nil {
 		return err
 	}
@@ -79,6 +77,7 @@ func addK8sPolicies(k *Kubernetes) error {
 	if err != nil {
 		return err
 	}
+	var namespaces []string
 	for _, np := range policies.Items {
 		if !stringInSlice(np.Namespace, namespaces) {
 			namespaces = append(namespaces, np.Namespace)
@@ -99,6 +98,27 @@ func addK8sPolicies(k *Kubernetes) error {
 }
 
 func addAntreaPolicies(k *Kubernetes) error {
+	policies, err := k.GetAntreaPolicies()
+	if err != nil {
+		return err
+	}
+	var namespaces []string
+	for _, np := range policies.Items {
+		if !stringInSlice(np.Namespace, namespaces) {
+			namespaces = append(namespaces, np.Namespace)
+			os.Mkdir(directory + "/network-policy-repository/antrea-policy/" + np.Namespace, 0700)
+		}
+		path := directory + "/network-policy-repository/antrea-policy/" + np.Namespace + "/" + np.Name + ".yaml"
+		fmt.Println(path)
+		y, err := yaml.JSONToYAML([]byte(np.Annotations["kubectl.kubernetes.io/last-applied-configuration"]))
+		if err != nil {
+			return errors.Wrapf(err, "unable to convert network policy object")
+		}
+		err = ioutil.WriteFile(path, y, 0644)
+		if err != nil {
+			return errors.Wrapf(err, "unable to write policy config to file")
+		}
+	}
 	return nil
 }
 
