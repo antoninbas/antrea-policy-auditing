@@ -24,8 +24,7 @@ func SetupRepo(k *Kubernetes) (error) {
         }
         directory = path
     }
-    os.Mkdir(directory+"network-policy-repository", 0700)
-    r, err := git.PlainInit(directory+"/network-policy-repository/", false)
+    r, err := git.PlainInit(directory + "/network-policy-repository/", false)
     if err != nil {
 		return errors.WithMessagef(err, "could not initialize git repo")
 	}
@@ -33,16 +32,13 @@ func SetupRepo(k *Kubernetes) (error) {
     if err != nil {
 		return errors.WithMessagef(err, "could not intialize git worktree")
 	}
-
 	if err := addNetworkPolicies(k); err != nil {
 		return errors.WithMessagef(err, "couldn't write network policies")
 	}
-
     _, err = w.Add(".")
     if err != nil {
 		return errors.WithMessagef(err, "couldn't git add changes")
 	}
-
     _, err = w.Commit("initial commit of existing policies", &git.CommitOptions{
         Author: &object.Signature{
             Name:  "audit-init",
