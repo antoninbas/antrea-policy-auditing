@@ -149,14 +149,3 @@ func stringInSlice(a string, list []string) bool {
     }
     return false
 }
-
-func main() {
-	k8s, err := NewKubernetes()
-	if err != nil {
-		fmt.Println(err)
-	}
-	
-	if err := SetupRepo(k8s); err != nil {
-		fmt.Println(err)
-	}
-}
