@@ -1,4 +1,4 @@
-package main
+package init
 
 import (
     "fmt"
@@ -10,8 +10,6 @@ import (
 	"github.com/pkg/errors"
     "github.com/go-git/go-git/v5"
     "github.com/go-git/go-git/v5/plumbing/object"
-
-    . "audit_init/client"
 )
 
 var directory string
