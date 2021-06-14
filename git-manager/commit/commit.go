@@ -1,4 +1,4 @@
-package main
+package commit
 
 import (
     "fmt"
@@ -16,7 +16,7 @@ import (
 )
 
 var directory string
-var dirMap map[string]string{
+var dirMap = map[string]string {
     "networking.k8s.io/v1NetworkPolicy": "k8s-policy",
     "crd.antrea.io/v1alpha1NetworkPolicy": "antrea-policy",
     "crd.antrea.io/v1alpha1ClusterNetworkPolicy": "antrea-cluster-policy",
@@ -27,15 +27,18 @@ type yamlMask struct {
     ApiVersion  string `json:"apiVersion"`
 }
 
-func eventToCommit(event auditv1.Event) {
+func eventToCommit(event auditv1.Event) (error) {
     r, err := git.PlainOpen(directory+"/network-policy-repository/")
-    CheckIfError(err)
+    if err != nil {
+        return err
+    }
     w, err := r.Worktree()
-    CheckIfError(err)
 
     Info("git add .")
     _, err = w.Add(".")
-    CheckIfError(err)
+    if err != nil {
+        return err
+    }
 
     Info("git commit -m \"Network Policy change commit\"")
     _, err = w.Commit("Network Policy change commit", &git.CommitOptions{
@@ -45,9 +48,13 @@ func eventToCommit(event auditv1.Event) {
             When:  time.Now(),
         },
     })
-    CheckIfError(err)
+    if err != nil {
+        return err
+    }
+
+    return nil
 }
-func EventListToCommit(eventList auditv1.EventList) {
+func EventListToCommit(eventList auditv1.EventList) (error) {
     for _,event := range eventList.Items {
         err := eventToCommit(event)
         if err != nil {
