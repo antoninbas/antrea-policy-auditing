@@ -1,11 +1,10 @@
-package commit
+package gitops
 
 import (
     "fmt"
     "os"
     "time"
     "io/ioutil"
-    "encoding/json"
 
     "github.com/go-git/go-git/v5"
     . "github.com/go-git/go-git/v5/_examples"
@@ -16,18 +15,8 @@ import (
 )
 
 var directory string
-var dirMap = map[string]string {
-    "networking.k8s.io/v1NetworkPolicy": "k8s-policy",
-    "crd.antrea.io/v1alpha1NetworkPolicy": "antrea-policy",
-    "crd.antrea.io/v1alpha1ClusterNetworkPolicy": "antrea-cluster-policy",
-}
 
-type yamlMask struct {
-    Kind        string `json:"kind"`
-    ApiVersion  string `json:"apiVersion"`
-}
-
-func eventToCommit(event auditv1.Event) (error) {
+func EventToCommit(event auditv1.Event) (error) {
     r, err := git.PlainOpen(directory+"/network-policy-repository/")
     if err != nil {
         return err
@@ -56,7 +45,7 @@ func eventToCommit(event auditv1.Event) (error) {
 }
 func EventListToCommit(eventList auditv1.EventList) (error) {
     for _,event := range eventList.Items {
-        err := eventToCommit(event)
+        err := EventToCommit(event)
         if err != nil {
             return err
         }
@@ -64,26 +53,19 @@ func EventListToCommit(eventList auditv1.EventList) (error) {
     return nil
 }
 
-func modifyFile(event auditv1.Event) (error) {
+func ModifyFile(event auditv1.Event) (error) {
     y, err := yaml.JSONToYAML(event.RequestObject.Raw)
     if err!=nil {
         fmt.Printf("error converting json to yaml\n")
         return err
     }
 
-    yMask := yamlMask{}
-    err = json.Unmarshal(event.RequestObject.Raw, &yMask)
-    if err!=nil {
-        fmt.Printf("error unmarshalling json\n")
-        return err
-    }
-
-    path := directory+"/network-policy-repository/"+dirMap[yMask.ApiVersion+yMask.Kind]+"/"+event.ObjectRef.Namespace
+    path := directory+"/network-policy-repository/"+event.ObjectRef.Resource+"/"+event.ObjectRef.Namespace+"/"
     if _, err := os.Stat(path); os.IsNotExist(err) {
         os.Mkdir(path, 0700)
     }
 
-    path += "/network-policy.yaml"
+    path += event.ObjectRef.Resource+event.ObjectRef.Namespace+event.ObjectRef.Name+".yaml"
     err = ioutil.WriteFile(path, y, 0644)
     if err!=nil {
         fmt.Printf("error writing file\n")
@@ -95,7 +77,7 @@ func modifyFile(event auditv1.Event) (error) {
 
 func ModifyFiles(eventList auditv1.EventList) (error) {
     for _,event := range eventList.Items {
-        err := modifyFile(event)
+        err := ModifyFile(event)
         if err != nil {
             return err
         }
