@@ -1,7 +1,6 @@
 package init
 
 import (
-	//"fmt"
 	"k8s.io/client-go/rest"
 	"os"
 	"path/filepath"
@@ -18,9 +17,9 @@ import (
 )
 
 type Kubernetes struct {
-	podCache  map[string][]v1.Pod
-	ClientSet *kubernetes.Clientset
-	crdClient *crdclientset.Clientset
+	PodCache  map[string][]v1.Pod
+	ClientSet kubernetes.Interface
+	CrdClient crdclientset.Interface
 }
 
 func NewKubernetes() (*Kubernetes, error) {
@@ -29,9 +28,9 @@ func NewKubernetes() (*Kubernetes, error) {
 		return nil, errors.WithMessagef(err, "unable to instantiate kube client")
 	}
 	return &Kubernetes{
-		podCache:  map[string][]v1.Pod{},
+		PodCache:  map[string][]v1.Pod{},
 		ClientSet: clientSet,
-		crdClient: crdClientSet,
+		CrdClient: crdClientSet,
 	}, nil
 }
 
@@ -66,7 +65,7 @@ func (k *Kubernetes) GetK8sPolicies() (*networking.NetworkPolicyList, error) {
 }
 
 func (k *Kubernetes) GetAntreaPolicies() (*v1alpha1.NetworkPolicyList, error) {
-	l, err := k.crdClient.CrdV1alpha1().NetworkPolicies("").List(context.TODO(), metav1.ListOptions{})
+	l, err := k.CrdClient.CrdV1alpha1().NetworkPolicies("").List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to list antrea network policies")
 	}
@@ -74,7 +73,7 @@ func (k *Kubernetes) GetAntreaPolicies() (*v1alpha1.NetworkPolicyList, error) {
 }
 
 func (k *Kubernetes) GetAntreaClusterPolicies() (*v1alpha1.ClusterNetworkPolicyList, error) {
-	l, err := k.crdClient.CrdV1alpha1().ClusterNetworkPolicies().List(context.TODO(), metav1.ListOptions{})
+	l, err := k.CrdClient.CrdV1alpha1().ClusterNetworkPolicies().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to list antrea cluster network policies")
 	}
