@@ -54,7 +54,7 @@ func EventListToCommit(eventList auditv1.EventList) (error) {
 }
 
 func ModifyFile(event auditv1.Event) (error) {
-    y, err := yaml.JSONToYAML(event.RequestObject.Raw)
+    y, err := yaml.JSONToYAML(event.ResponseObject.Raw)
     if err!=nil {
         fmt.Printf("error converting json to yaml\n")
         return err
