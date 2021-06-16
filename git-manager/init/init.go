@@ -52,9 +52,9 @@ func SetupRepoInMem(k *Kubernetes, storer *memory.Storage, fs billy.Filesystem) 
 }
 
 func addNetworkPolicies(k *Kubernetes, dir string) error {
-    os.Mkdir(dir + "/network-policy-repository/k8s-policy", 0700)
-    os.Mkdir(dir + "/network-policy-repository/antrea-policy", 0700)
-    os.Mkdir(dir + "/network-policy-repository/antrea-cluster-policy", 0700)
+    os.Mkdir(dir + "/network-policy-repository/k8s-policies", 0700)
+    os.Mkdir(dir + "/network-policy-repository/antrea-policies", 0700)
+    os.Mkdir(dir + "/network-policy-repository/antrea-cluster-policies", 0700)
 	if err := addK8sPolicies(k, dir); err != nil {
 		return err
 	}
@@ -68,9 +68,9 @@ func addNetworkPolicies(k *Kubernetes, dir string) error {
 }
 
 func addNetworkPoliciesInMem(k *Kubernetes, fs billy.Filesystem) error {
-	fs.MkdirAll("k8s-policy", 0700)
-	fs.MkdirAll("antrea-policy", 0700)
-	fs.MkdirAll("antrea-cluster-policy", 0700)
+	fs.MkdirAll("k8s-policies", 0700)
+	fs.MkdirAll("antrea-policies", 0700)
+	fs.MkdirAll("antrea-cluster-policies", 0700)
 	if err := addK8sPoliciesInMem(k, fs); err != nil {
 		return err
 	}
@@ -96,9 +96,9 @@ func addK8sPolicies(k *Kubernetes, dir string) error {
 		}
 		if !stringInSlice(np.Namespace, namespaces) {
 			namespaces = append(namespaces, np.Namespace)
-			os.Mkdir(dir + "/network-policy-repository/k8s-policy/" + np.Namespace, 0700)
+			os.Mkdir(dir + "/network-policy-repository/k8s-policies/" + np.Namespace, 0700)
 		}
-		path := dir + "/network-policy-repository/k8s-policy/" + np.Namespace + "/" + np.Name + ".yaml"
+		path := dir + "/network-policy-repository/k8s-policies/" + np.Namespace + "/" + np.Name + ".yaml"
 		fmt.Println("Added "+path)
 		y, err := yaml.Marshal(&np)
 		if err != nil {
@@ -125,9 +125,9 @@ func addK8sPoliciesInMem(k *Kubernetes, fs billy.Filesystem) error {
 		}
 		if !stringInSlice(np.Namespace, namespaces) {
 			namespaces = append(namespaces, np.Namespace)
-			fs.MkdirAll("k8s-policy/" + np.Namespace, 0700)
+			fs.MkdirAll("k8s-policies/" + np.Namespace, 0700)
 		}
-		path := "k8s-policy/" + np.Namespace + "/" + np.Name + ".yaml"
+		path := "k8s-policies/" + np.Namespace + "/" + np.Name + ".yaml"
 		fmt.Println("Added "+path)
 		y, err := yaml.Marshal(&np)
 		if err != nil {
@@ -156,9 +156,9 @@ func addAntreaPolicies(k *Kubernetes, dir string) error {
 		}
 		if !stringInSlice(np.Namespace, namespaces) {
 			namespaces = append(namespaces, np.Namespace)
-			os.Mkdir(dir + "/network-policy-repository/antrea-policy/" + np.Namespace, 0700)
+			os.Mkdir(dir + "/network-policy-repository/antrea-policies/" + np.Namespace, 0700)
 		}
-		path := dir + "/network-policy-repository/antrea-policy/" + np.Namespace + "/" + np.Name + ".yaml"
+		path := dir + "/network-policy-repository/antrea-policies/" + np.Namespace + "/" + np.Name + ".yaml"
 		fmt.Println("Added "+path)
 		y, err := yaml.Marshal(&np)
 		if err != nil {
@@ -185,9 +185,9 @@ func addAntreaPoliciesInMem(k *Kubernetes, fs billy.Filesystem) error {
 		}
 		if !stringInSlice(np.Namespace, namespaces) {
 			namespaces = append(namespaces, np.Namespace)
-			fs.MkdirAll("antrea-policy/" + np.Namespace, 0700)
+			fs.MkdirAll("antrea-policies/" + np.Namespace, 0700)
 		}
-		path := "antrea-policy/" + np.Namespace + "/" + np.Name + ".yaml"
+		path := "antrea-policies/" + np.Namespace + "/" + np.Name + ".yaml"
 		fmt.Println("Added "+path)
 		y, err := yaml.Marshal(&np)
 		if err != nil {
@@ -213,7 +213,7 @@ func addAntreaClusterPolicies(k *Kubernetes, dir string) error {
 			Kind: "ClusterNetworkPolicy",
 			APIVersion: "crd.antrea.io/v1alpha1",
 		}
-		path := dir + "/network-policy-repository/antrea-cluster-policy/" + np.Name + ".yaml"
+		path := dir + "/network-policy-repository/antrea-cluster-policies/" + np.Name + ".yaml"
 		fmt.Println("Added "+path)
 		y, err := yaml.Marshal(&np)
 		if err != nil {
@@ -237,7 +237,7 @@ func addAntreaClusterPoliciesInMem(k *Kubernetes, fs billy.Filesystem) error {
 			Kind: "ClusterNetworkPolicy",
 			APIVersion: "crd.antrea.io/v1alpha1",
 		}
-		path := "antrea-cluster-policy/" + np.Name + ".yaml"
+		path := "antrea-cluster-policies/" + np.Name + ".yaml"
 		fmt.Println("Added "+path)
 		y, err := yaml.Marshal(&np)
 		if err != nil {
