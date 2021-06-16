@@ -16,12 +16,8 @@ import (
 
 var directory string
 
-func AddAndCommit(username string, email string, message string) (error) {
-    r, err := git.PlainOpen(directory+"/network-policy-repository/")
-    if err != nil {
-        return err
-    }
-    w, err := r.Worktree()
+func AddAndCommit(repo *git.Repository, username string, email string, message string) (error) {
+    w, err := repo.Worktree()
     if err != nil {
         return err
     }
@@ -50,7 +46,11 @@ func GetFileName(event auditv1.Event) (string) {
 }
 
 func EventToCommit(event auditv1.Event) (error) {
-    return AddAndCommit(event.User.Username, event.User.Username+event.User.UID+"@audit.antrea.io", "Network Policy Change for file: "+GetFileName(event))
+    r, err := git.PlainOpen(directory+"/network-policy-repository/")
+    if err != nil {
+        return err
+    }
+    return AddAndCommit(r, event.User.Username, event.User.Username+event.User.UID+"@audit.antrea.io", "Network Policy Change for file: "+GetFileName(event))
 }
 
 func ModifyFile(event auditv1.Event) (error) {
