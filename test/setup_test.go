@@ -1,9 +1,10 @@
 package test
 
 import (
-	// "fmt"
+	//"fmt"
     "testing"
 
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	memfs "github.com/go-git/go-billy/v5/memfs"
 	memory "github.com/go-git/go-git/v5/storage/memory"
@@ -11,6 +12,7 @@ import (
 	. "antrea-audit/git-manager/init"
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"github.com/go-git/go-git/v5"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/runtime"
 	fake "k8s.io/client-go/kubernetes/fake"
@@ -425,7 +427,7 @@ func TestRepoDuplicate(t *testing.T) {
 	if err := SetupRepoInMem(k8s, storer, fs); err != nil {
 		t.Errorf("Error (TestRepoDuplicate): unable to set up repo for the first time")
 	}
-	if err := SetupRepoInMem(k8s, storer, fs); err != nil {
+	if err := SetupRepoInMem(k8s, storer, fs); errors.Cause(err) != git.ErrRepositoryAlreadyExists {
 		t.Errorf("Error (TestRepoDuplicate): should have detected that repo already exists")
 	}
 }

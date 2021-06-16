@@ -29,8 +29,7 @@ func SetupRepo(k *Kubernetes) error {
     }
     r, err := git.PlainInit(directory + "/network-policy-repository/", false)
     if err == git.ErrRepositoryAlreadyExists {
-		fmt.Println("Repository already exists, skipping initialization")
-		return nil
+		return errors.WithMessagef(err, "Repository already exists, skipping initialization")
 	} else if err != nil {
 		return errors.WithMessagef(err, "could not initialize git repo")
 	}
@@ -63,8 +62,7 @@ func SetupRepo(k *Kubernetes) error {
 func SetupRepoInMem(k *Kubernetes, storer *memory.Storage, fs billy.Filesystem) error {
 	r, err := git.Init(storer, fs)
     if err == git.ErrRepositoryAlreadyExists {
-		fmt.Println("Repository already exists, skipping initialization")
-		return nil
+		return errors.WithMessagef(err, "Repository already exists, skipping initialization")
 	} else if err != nil {
 		return errors.WithMessagef(err, "could not initialize git repo")
 	}
