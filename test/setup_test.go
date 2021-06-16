@@ -416,6 +416,23 @@ func runTest(t *testing.T, k8s *Kubernetes, expPaths []string, expYamls []string
 	os.RemoveAll("./network-policy-repository")
 }
 
+func TestRepoDuplicate(t *testing.T) {
+	fakeK8sClient := newK8sClientSet(np1.inputPolicy)
+	fakeCRDClient := newCRDClientSet(anp1.inputPolicy)
+	k8s := &Kubernetes{
+		PodCache:  map[string][]v1.Pod{},
+		ClientSet: fakeK8sClient,
+		CrdClient: fakeCRDClient,
+	}
+	if err := SetupRepo(k8s); err != nil {
+		t.Errorf("Error (TestRepoDuplicate): unable to set up repo for the first time")
+	}
+	if err := SetupRepo(k8s); err != nil {
+		t.Errorf("Error (TestRepoDuplicate): should have detected that repo already exists")
+	}
+	os.RemoveAll("./network-policy-repository")
+}
+
 func newK8sClientSet(objects ...runtime.Object) *fake.Clientset {
 	client := fake.NewSimpleClientset(objects...)
 	return client

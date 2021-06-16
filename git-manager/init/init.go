@@ -15,7 +15,7 @@ import (
 
 var directory string
 
-func SetupRepo(k *Kubernetes) (error) {
+func SetupRepo(k *Kubernetes) error {
     if directory == "" {
         path, err := os.Getwd()
         if err != nil {
@@ -24,7 +24,10 @@ func SetupRepo(k *Kubernetes) (error) {
         directory = path
     }
     r, err := git.PlainInit(directory + "/network-policy-repository/", false)
-    if err != nil {
+    if err == git.ErrRepositoryAlreadyExists {
+		fmt.Println("Repository already exists, skipping initialization")
+		return nil
+	} else if err != nil {
 		return errors.WithMessagef(err, "could not initialize git repo")
 	}
     w, err := r.Worktree()
@@ -48,6 +51,11 @@ func SetupRepo(k *Kubernetes) (error) {
     if err != nil {
 		return errors.WithMessagef(err, "couldn't git commit changes")
 	}
+	fmt.Println("Repository successfully initialized")
+	return nil
+}
+
+func SetupRepoInMem(k *Kubernetes) error {
 	return nil
 }
 
@@ -83,7 +91,7 @@ func addK8sPolicies(k *Kubernetes) error {
 			os.Mkdir(directory + "/network-policy-repository/k8s-policy/" + np.Namespace, 0700)
 		}
 		path := directory + "/network-policy-repository/k8s-policy/" + np.Namespace + "/" + np.Name + ".yaml"
-		fmt.Println(path)
+		fmt.Println("Added "+path)
 		y, err := yaml.Marshal(&np)
 		if err != nil {
 			return errors.Wrapf(err, "unable to marshal policy config")
@@ -112,7 +120,7 @@ func addAntreaPolicies(k *Kubernetes) error {
 			os.Mkdir(directory + "/network-policy-repository/antrea-policy/" + np.Namespace, 0700)
 		}
 		path := directory + "/network-policy-repository/antrea-policy/" + np.Namespace + "/" + np.Name + ".yaml"
-		fmt.Println(path)
+		fmt.Println("Added "+path)
 		y, err := yaml.Marshal(&np)
 		if err != nil {
 			return errors.Wrapf(err, "unable to marshal policy config")
@@ -141,7 +149,7 @@ func addAntreaClusterPolicies(k *Kubernetes) error {
 			os.Mkdir(directory + "/network-policy-repository/antrea-cluster-policy/" + np.Namespace, 0700)
 		}
 		path := directory + "/network-policy-repository/antrea-cluster-policy/" + np.Name + ".yaml"
-		fmt.Println(path)
+		fmt.Println("Added "+path)
 		y, err := yaml.Marshal(&np)
 		if err != nil {
 			return errors.Wrapf(err, "unable to marshal policy config")
