@@ -15,6 +15,11 @@ import (
 )
 
 var directory string
+var dirmap = map[string]string{
+    "networkpoliciesnetworking.k8s.io": "k8s-policy",
+    "networkpoliciescrd.antrea.io": "antrea-policy",
+    "clusternetworkpoliciescrd.antrea.io": "antrea-cluster-policy",
+}
 
 func AddAndCommit(repo *git.Repository, username string, email string, message string) (error) {
     w, err := repo.Worktree()
@@ -38,11 +43,11 @@ func AddAndCommit(repo *git.Repository, username string, email string, message s
 }
 
 func GetRepoPath(event auditv1.Event) (string) {
-    return directory+"/network-policy-repository/"+event.ObjectRef.Resource+"/"+event.ObjectRef.Namespace+"/"
+    return directory+"/network-policy-repository/"+dirmap[event.ObjectRef.Request+event.ObjectRef.APIGroup]+"/"+event.ObjectRef.Namespace+"/"
 }
 
 func GetFileName(event auditv1.Event) (string) {
-    return event.ObjectRef.Resource+event.ObjectRef.Namespace+event.ObjectRef.Name+".yaml"
+    return ObjectRef.Name+".yaml"
 }
 
 func EventToCommit(event auditv1.Event) (error) {
