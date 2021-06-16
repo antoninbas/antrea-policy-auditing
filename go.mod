@@ -13,10 +13,11 @@ replace (
 
 require (
 	antrea.io/antrea v1.1.0
-	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/ghodss/yaml v1.0.0
+	github.com/go-git/go-billy/v5 v5.3.1
 	github.com/go-git/go-git/v5 v5.4.2
 	github.com/pkg/errors v0.9.1
+	github.com/stretchr/testify v1.7.0
 	k8s.io/api v0.21.1
 	k8s.io/apimachinery v0.21.1
 	k8s.io/apiserver v0.21.0
