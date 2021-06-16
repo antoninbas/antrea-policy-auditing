@@ -1,9 +1,12 @@
 package test
 
 import (
+	// "fmt"
     "testing"
 	"os"
+	"io/ioutil"
 
+	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/core/v1"
 	. "antrea-audit/git-manager/init"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -15,6 +18,12 @@ import (
 	crdv1alpha1 "antrea.io/antrea/pkg/apis/crd/v1alpha1"
 )
 
+type test_policy struct {
+	inputPolicy runtime.Object
+	expPath string
+	expYaml string
+}
+
 var (
 	selectorA = metav1.LabelSelector{MatchLabels: map[string]string{"foo1": "bar1"}}
 	selectorB = metav1.LabelSelector{MatchLabels: map[string]string{"foo2": "bar2"}}
@@ -23,193 +32,373 @@ var (
 	int80 = intstr.FromInt(80)
 	int81 = intstr.FromInt(81)
 	allowAction = crdv1alpha1.RuleActionAllow
-	np1 = &networkingv1.NetworkPolicy{
-		ObjectMeta: metav1.ObjectMeta{Namespace: "nsA", Name: "npA", UID: "uidA"},
-		Spec: networkingv1.NetworkPolicySpec{
-			PodSelector: metav1.LabelSelector{},
-			PolicyTypes: []networkingv1.PolicyType{networkingv1.PolicyTypeIngress},
-			Ingress:     []networkingv1.NetworkPolicyIngressRule{{}},
+	np1 = test_policy{
+		inputPolicy: &networkingv1.NetworkPolicy{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "nsA", Name: "npA", UID: "uidA"},
+				Spec: networkingv1.NetworkPolicySpec{
+					PodSelector: metav1.LabelSelector{},
+					PolicyTypes: []networkingv1.PolicyType{networkingv1.PolicyTypeIngress},
+					Ingress:     []networkingv1.NetworkPolicyIngressRule{{}},
+				},
 		},
+		expPath: "/k8s-policy/nsA/npA.yaml",
+		expYaml: 
+`apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  creationTimestamp: null
+  name: npA
+  namespace: nsA
+  uid: uidA
+spec:
+  ingress:
+  - {}
+  podSelector: {}
+  policyTypes:
+  - Ingress
+`,
 	}
-	np2 = &networkingv1.NetworkPolicy{
-		ObjectMeta: metav1.ObjectMeta{Namespace: "nsA", Name: "npB", UID: "uidB"},
-		Spec: networkingv1.NetworkPolicySpec{
-			PodSelector: metav1.LabelSelector{},
-			PolicyTypes: []networkingv1.PolicyType{networkingv1.PolicyTypeEgress},
-			Egress:      []networkingv1.NetworkPolicyEgressRule{{}},
+	np2 = test_policy{
+		inputPolicy: &networkingv1.NetworkPolicy{
+			ObjectMeta: metav1.ObjectMeta{Namespace: "nsA", Name: "npB", UID: "uidB"},
+			Spec: networkingv1.NetworkPolicySpec{
+				PodSelector: metav1.LabelSelector{},
+				PolicyTypes: []networkingv1.PolicyType{networkingv1.PolicyTypeEgress},
+				Egress:      []networkingv1.NetworkPolicyEgressRule{{}},
+			},
 		},
+		expPath: "/k8s-policy/nsA/npB.yaml",
+		expYaml: 
+`apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  creationTimestamp: null
+  name: npB
+  namespace: nsA
+  uid: uidB
+spec:
+  egress:
+  - {}
+  podSelector: {}
+  policyTypes:
+  - Egress
+`,
 	}
-	np3 = &networkingv1.NetworkPolicy{
-		ObjectMeta: metav1.ObjectMeta{Namespace: "nsB", Name: "npC", UID: "uidC"},
-		Spec: networkingv1.NetworkPolicySpec{
-			PodSelector: selectorA,
-			Ingress: []networkingv1.NetworkPolicyIngressRule{
-				{
-					Ports: []networkingv1.NetworkPolicyPort{
-						{
-							Port: &int80,
+	np3 = test_policy{
+		inputPolicy: &networkingv1.NetworkPolicy{
+			ObjectMeta: metav1.ObjectMeta{Namespace: "nsB", Name: "npC", UID: "uidC"},
+			Spec: networkingv1.NetworkPolicySpec{
+				PodSelector: selectorA,
+				Ingress: []networkingv1.NetworkPolicyIngressRule{
+					{
+						Ports: []networkingv1.NetworkPolicyPort{
+							{
+								Port: &int80,
+							},
 						},
-					},
-					From: []networkingv1.NetworkPolicyPeer{
-						{
-							PodSelector:       &selectorB,
-							NamespaceSelector: &selectorC,
+						From: []networkingv1.NetworkPolicyPeer{
+							{
+								PodSelector:       &selectorB,
+								NamespaceSelector: &selectorC,
+							},
 						},
 					},
 				},
-			},
-			Egress: []networkingv1.NetworkPolicyEgressRule{
-				{
-					Ports: []networkingv1.NetworkPolicyPort{
-						{
-							Port: &int81,
+				Egress: []networkingv1.NetworkPolicyEgressRule{
+					{
+						Ports: []networkingv1.NetworkPolicyPort{
+							{
+								Port: &int81,
+							},
 						},
-					},
-					To: []networkingv1.NetworkPolicyPeer{
-						{
-							PodSelector:       &selectorB,
-							NamespaceSelector: &selectorC,
+						To: []networkingv1.NetworkPolicyPeer{
+							{
+								PodSelector:       &selectorB,
+								NamespaceSelector: &selectorC,
+							},
 						},
 					},
 				},
 			},
 		},
+		expPath: "/k8s-policy/nsB/npC.yaml",
+		expYaml: 
+`apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  creationTimestamp: null
+  name: npC
+  namespace: nsB
+  uid: uidC
+spec:
+  egress:
+  - ports:
+    - port: 81
+    to:
+    - namespaceSelector:
+        matchLabels:
+          foo3: bar3
+      podSelector:
+        matchLabels:
+          foo2: bar2
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          foo3: bar3
+      podSelector:
+        matchLabels:
+          foo2: bar2
+    ports:
+    - port: 80
+  podSelector:
+    matchLabels:
+      foo1: bar1
+`,
 	}
-	anp1 = &crdv1alpha1.NetworkPolicy{
-		ObjectMeta: metav1.ObjectMeta{Namespace: "nsA", Name: "npA", UID: "uidA"},
-		Spec: crdv1alpha1.NetworkPolicySpec{
-			AppliedTo: []crdv1alpha1.NetworkPolicyPeer{
-				{PodSelector: &selectorA},
-			},
-			Priority: p10,
-			Ingress: []crdv1alpha1.Rule{
-				{
-					Ports: []crdv1alpha1.NetworkPolicyPort{
-						{
-							Port: &int80,
-						},
-					},
-					From: []crdv1alpha1.NetworkPolicyPeer{
-						{
-							PodSelector:       &selectorB,
-							NamespaceSelector: &selectorC,
-						},
-					},
-					Action: &allowAction,
+	anp1 = test_policy{
+		inputPolicy: &crdv1alpha1.NetworkPolicy{
+			ObjectMeta: metav1.ObjectMeta{Namespace: "nsA", Name: "npA", UID: "uidA"},
+			Spec: crdv1alpha1.NetworkPolicySpec{
+				AppliedTo: []crdv1alpha1.NetworkPolicyPeer{
+					{PodSelector: &selectorA},
 				},
-			},
-			Egress: []crdv1alpha1.Rule{
-				{
-					Ports: []crdv1alpha1.NetworkPolicyPort{
-						{
-							Port: &int81,
+				Priority: p10,
+				Ingress: []crdv1alpha1.Rule{
+					{
+						Ports: []crdv1alpha1.NetworkPolicyPort{
+							{
+								Port: &int80,
+							},
 						},
-					},
-					To: []crdv1alpha1.NetworkPolicyPeer{
-						{
-							PodSelector:       &selectorB,
-							NamespaceSelector: &selectorC,
+						From: []crdv1alpha1.NetworkPolicyPeer{
+							{
+								PodSelector:       &selectorB,
+								NamespaceSelector: &selectorC,
+							},
 						},
+						Action: &allowAction,
 					},
-					Action: &allowAction,
+				},
+				Egress: []crdv1alpha1.Rule{
+					{
+						Ports: []crdv1alpha1.NetworkPolicyPort{
+							{
+								Port: &int81,
+							},
+						},
+						To: []crdv1alpha1.NetworkPolicyPeer{
+							{
+								PodSelector:       &selectorB,
+								NamespaceSelector: &selectorC,
+							},
+						},
+						Action: &allowAction,
+					},
 				},
 			},
 		},
+		expPath: "/antrea-policy/nsA/npA.yaml",
+		expYaml: 
+`apiVersion: crd.antrea.io/v1alpha1
+kind: NetworkPolicy
+metadata:
+  creationTimestamp: null
+  name: npA
+  namespace: nsA
+  uid: uidA
+spec:
+  appliedTo:
+  - podSelector:
+      matchLabels:
+        foo1: bar1
+  egress:
+  - action: Allow
+    enableLogging: false
+    from: null
+    name: ""
+    ports:
+    - port: 81
+    to:
+    - namespaceSelector:
+        matchLabels:
+          foo3: bar3
+      podSelector:
+        matchLabels:
+          foo2: bar2
+  ingress:
+  - action: Allow
+    enableLogging: false
+    from:
+    - namespaceSelector:
+        matchLabels:
+          foo3: bar3
+      podSelector:
+        matchLabels:
+          foo2: bar2
+    name: ""
+    ports:
+    - port: 80
+    to: null
+  priority: 10
+status:
+  currentNodesRealized: 0
+  desiredNodesRealized: 0
+  observedGeneration: 0
+  phase: ""
+`,
 	}
-	acnp1 = &crdv1alpha1.ClusterNetworkPolicy{
-		ObjectMeta: metav1.ObjectMeta{Name: "cnpA", UID: "uidA"},
-		Spec: crdv1alpha1.ClusterNetworkPolicySpec{
-			AppliedTo: []crdv1alpha1.NetworkPolicyPeer{
-				{PodSelector: &selectorA},
-			},
-			Priority: p10,
-			Ingress: []crdv1alpha1.Rule{
-				{
-					Ports: []crdv1alpha1.NetworkPolicyPort{
-						{
-							Port: &int80,
-						},
-					},
-					From: []crdv1alpha1.NetworkPolicyPeer{
-						{
-							PodSelector:       &selectorB,
-							NamespaceSelector: &selectorC,
-						},
-					},
-					Action: &allowAction,
+	acnp1 = test_policy{
+		inputPolicy: &crdv1alpha1.ClusterNetworkPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: "cnpA", UID: "uidA"},
+			Spec: crdv1alpha1.ClusterNetworkPolicySpec{
+				AppliedTo: []crdv1alpha1.NetworkPolicyPeer{
+					{PodSelector: &selectorA},
 				},
-			},
-			Egress: []crdv1alpha1.Rule{
-				{
-					Ports: []crdv1alpha1.NetworkPolicyPort{
-						{
-							Port: &int81,
+				Priority: p10,
+				Ingress: []crdv1alpha1.Rule{
+					{
+						Ports: []crdv1alpha1.NetworkPolicyPort{
+							{
+								Port: &int80,
+							},
 						},
-					},
-					To: []crdv1alpha1.NetworkPolicyPeer{
-						{
-							PodSelector:       &selectorB,
-							NamespaceSelector: &selectorC,
+						From: []crdv1alpha1.NetworkPolicyPeer{
+							{
+								PodSelector:       &selectorB,
+								NamespaceSelector: &selectorC,
+							},
 						},
+						Action: &allowAction,
 					},
-					Action: &allowAction,
+				},
+				Egress: []crdv1alpha1.Rule{
+					{
+						Ports: []crdv1alpha1.NetworkPolicyPort{
+							{
+								Port: &int81,
+							},
+						},
+						To: []crdv1alpha1.NetworkPolicyPeer{
+							{
+								PodSelector:       &selectorB,
+								NamespaceSelector: &selectorC,
+							},
+						},
+						Action: &allowAction,
+					},
 				},
 			},
 		},
+		expPath: "/antrea-cluster-policy/cnpA.yaml",
+		expYaml: 
+`apiVersion: crd.antrea.io/v1alpha1
+kind: ClusterNetworkPolicy
+metadata:
+  creationTimestamp: null
+  name: cnpA
+  uid: uidA
+spec:
+  appliedTo:
+  - podSelector:
+      matchLabels:
+        foo1: bar1
+  egress:
+  - action: Allow
+    enableLogging: false
+    from: null
+    name: ""
+    ports:
+    - port: 81
+    to:
+    - namespaceSelector:
+        matchLabels:
+          foo3: bar3
+      podSelector:
+        matchLabels:
+          foo2: bar2
+  ingress:
+  - action: Allow
+    enableLogging: false
+    from:
+    - namespaceSelector:
+        matchLabels:
+          foo3: bar3
+      podSelector:
+        matchLabels:
+          foo2: bar2
+    name: ""
+    ports:
+    - port: 80
+    to: null
+  priority: 10
+status:
+  currentNodesRealized: 0
+  desiredNodesRealized: 0
+  observedGeneration: 0
+  phase: ""
+`,
 	}
 )
 
 func TestSetupRepo(t *testing.T) {
 	tests := []struct {
 		name string
-		inputK8sPolicies []runtime.Object
-		inputCRDPolicies []runtime.Object
-		expectedPaths []string
+		inputK8sPolicies []test_policy
+		inputCRDPolicies []test_policy
 	}{
 		{
 			name: "empty-test",
-			inputK8sPolicies: []runtime.Object{},
-			inputCRDPolicies: []runtime.Object{},
-			expectedPaths: []string{},
+			inputK8sPolicies: []test_policy{},
+			inputCRDPolicies: []test_policy{},
 		},
 		{
 			name: "basic-test",
-			inputK8sPolicies: []runtime.Object{np1, np2, np3},
-			inputCRDPolicies: []runtime.Object{anp1, acnp1},
-			expectedPaths: []string{"/k8s-policy/nsA/npA.yaml", "/k8s-policy/nsA/npB.yaml", "/k8s-policy/nsB/npC.yaml", "/antrea-policy/nsA/npA.yaml", "/antrea-cluster-policy/cnpA.yaml"},
+			inputK8sPolicies: []test_policy{np1, np2, np3},
+			inputCRDPolicies: []test_policy{anp1, acnp1},
 		},
 		{
 			name: "empty-K8s-test",
-			inputK8sPolicies: []runtime.Object{},
-			inputCRDPolicies: []runtime.Object{anp1, acnp1},
-			expectedPaths: []string{"/antrea-policy/nsA/npA.yaml", "/antrea-cluster-policy/cnpA.yaml"},
+			inputK8sPolicies: []test_policy{},
+			inputCRDPolicies: []test_policy{anp1, acnp1},
 		},
 		{
 			name: "empty-CRDs-test",
-			inputK8sPolicies: []runtime.Object{np1, np2},
-			inputCRDPolicies: []runtime.Object{},
-			expectedPaths: []string{"/k8s-policy/nsA/npA.yaml", "/k8s-policy/nsA/npB.yaml"},
+			inputK8sPolicies: []test_policy{np1, np2},
+			inputCRDPolicies: []test_policy{},
 		},
 	}
 	for _, test := range tests {
-		fakeK8sClient := newK8sClientSet(test.inputK8sPolicies...)
-		fakeCRDClient := newCRDClientSet(test.inputCRDPolicies...)
-		runTest(t, fakeK8sClient, fakeCRDClient, test.expectedPaths)
+		var expectedPaths = []string{}
+		var expectedYamls = []string{}
+		var k8sPolicies = []runtime.Object{}
+		for _, policy := range test.inputK8sPolicies {
+			k8sPolicies = append(k8sPolicies, policy.inputPolicy)
+			expectedPaths = append(expectedPaths, policy.expPath)
+			expectedYamls = append(expectedYamls, policy.expYaml)
+		}
+		var crdPolicies = []runtime.Object{}
+		for _, policy := range test.inputCRDPolicies {
+			crdPolicies = append(crdPolicies, policy.inputPolicy)
+			expectedPaths = append(expectedPaths, policy.expPath)
+			expectedYamls = append(expectedYamls, policy.expYaml)
+		}
+		fakeK8sClient := newK8sClientSet(k8sPolicies...)
+		fakeCRDClient := newCRDClientSet(crdPolicies...)
+		k8s := &Kubernetes{
+			PodCache:  map[string][]v1.Pod{},
+			ClientSet: fakeK8sClient,
+			CrdClient: fakeCRDClient,
+		}
+		runTest(t, k8s, expectedPaths, expectedYamls)
 	}
 }
 
-func runTest(t *testing.T, K8sClient *fake.Clientset, CRDClient *fakeversioned.Clientset, expPaths []string) {
-	k8s := &Kubernetes{
-		PodCache:  map[string][]v1.Pod{},
-		ClientSet: K8sClient,
-		CrdClient: CRDClient,
-	}
-
+func runTest(t *testing.T, k8s *Kubernetes, expPaths []string, expYamls []string) {
 	if err := SetupRepo(k8s); err != nil {
 		t.Errorf("Error (TestSetupRepo): unable to set up repo")
 	}
-
-	for _, path := range expPaths {
+	for i, path := range expPaths {
 		cwd, err := os.Getwd()
 		cwd += "/network-policy-repository"
         if err != nil {
@@ -217,11 +406,13 @@ func runTest(t *testing.T, K8sClient *fake.Clientset, CRDClient *fakeversioned.C
         }
 		if _, err := os.Stat(cwd + path); os.IsNotExist(err) {
 			t.Errorf("Error (TestSetupRepo): file was not found in the correct repo subdirectory")
-		  }
-	} 
-
-	//TODO: verify that yamls contain correct contents
-
+		}
+		y, err := ioutil.ReadFile(cwd + path)
+		if err != nil {
+			t.Errorf("Error (TestSetupRepo): could not read file")
+		}
+		assert.Equal(t, string(y), expYamls[i], "Error (TestSetupRepo): file does not match expected YAML")
+	}
 	os.RemoveAll("./network-policy-repository")
 }
 
