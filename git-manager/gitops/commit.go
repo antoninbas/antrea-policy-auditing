@@ -5,6 +5,7 @@ import (
     "os"
     "time"
     "io/ioutil"
+    "encoding/json"
 
     "github.com/go-git/go-git/v5"
     . "github.com/go-git/go-git/v5/_examples"
@@ -15,6 +16,50 @@ import (
 )
 
 var directory string
+
+func AtomicAdd() (error) {
+    r, err := git.PlainOpen(directory+"/network-policy-repository/")
+    if err != nil {
+        return err
+    }
+    w, err := r.Worktree()
+    if err != nil {
+        return err
+    }
+
+    Info("git add .")
+    _, err = w.Add(".")
+    return err
+}
+
+func AtomicCommit(username string, email string, message string) (error) {
+    r, err := git.PlainOpen(directory+"/network-policy-repository/")
+    if err != nil {
+        return err
+    }
+    w, err := r.Worktree()
+    if err != nil {
+        return err
+    }
+
+    Info("git commit -m \""+message+"\"")
+    _, err = w.Commit(message, &git.CommitOptions{
+        Author: &object.Signature{
+            Name: username,
+            Email: email,
+            When: time.Now(),
+        },
+    })
+    return err
+}
+
+func GetRepoPath(event auditv1.Event) (string) {
+    return directory+"/network-policy-repository/"+event.ObjectRef.Resource+"/"+event.ObjectRef.Namespace+"/"
+}
+
+func GetFileName(event auditv1.Event) (string) {
+    return event.ObjectRef.Resource+event.ObjectRef.Namespace+event.ObjectRef.Name+".yaml"
+}
 
 func EventToCommit(event auditv1.Event) (error) {
     r, err := git.PlainOpen(directory+"/network-policy-repository/")
@@ -43,15 +88,6 @@ func EventToCommit(event auditv1.Event) (error) {
 
     return nil
 }
-func EventListToCommit(eventList auditv1.EventList) (error) {
-    for _,event := range eventList.Items {
-        err := EventToCommit(event)
-        if err != nil {
-            return err
-        }
-    }
-    return nil
-}
 
 func ModifyFile(event auditv1.Event) (error) {
     y, err := yaml.JSONToYAML(event.ResponseObject.Raw)
@@ -75,12 +111,31 @@ func ModifyFile(event auditv1.Event) (error) {
     return nil
 }
 
-func ModifyFiles(eventList auditv1.EventList) (error) {
+func EventToDelete(event auditv1.Event) (error) {
+    path := directory+"/network-policy-repository/"+event.ObjectRef.Resource+"/"+event.ObjectRef.Namespace+"/"
+    path += event.ObjectRef.Resource+event.ObjectRef.Namespace+event.ObjectRef.Name+".yaml"
+
+    err := os.Remove(path)
+    return err
+}
+
+func HandleEventList(jsonstring string) (error) {
+    eventList := auditv1.EventList{}
+    err := json.Unmarshal(jsonstring, &eventList)
+    if err != nil {
+        return err
+    }
+
     for _,event := range eventList.Items {
-        err := ModifyFile(event)
-        if err != nil {
-            return err
+        switch verb := event.Verb; verb {
+        case "create":
+            ModifyFile(event)
+        case "patch":
+            ModifyFile(event)
+        case "delete":
+            EventToDelete(event)
+        default:
+            continue
         }
     }
-    return nil
 }
