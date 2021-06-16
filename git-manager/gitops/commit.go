@@ -1,7 +1,6 @@
 package gitops
 
 import (
-    "fmt"
     "os"
     "time"
     "io/ioutil"
@@ -60,11 +59,11 @@ func ModifyFile(event auditv1.Event) (error) {
         return err
     }
 
-    path := GetRepoPath()
+    path := GetRepoPath(event)
     if _, err := os.Stat(path); os.IsNotExist(err) {
         os.Mkdir(path, 0700)
     }
-    path += GetFileName()
+    path += GetFileName(event)
 
     err = ioutil.WriteFile(path, y, 0644)
     return err
@@ -75,7 +74,7 @@ func EventToDelete(event auditv1.Event) (error) {
     return err
 }
 
-func HandleEventList(jsonstring string) (error) {
+func HandleEventList(jsonstring []byte) (error) {
     eventList := auditv1.EventList{}
     err := json.Unmarshal(jsonstring, &eventList)
     if err != nil {
@@ -85,14 +84,28 @@ func HandleEventList(jsonstring string) (error) {
     for _,event := range eventList.Items {
         switch verb := event.Verb; verb {
         case "create":
-            ModifyFile(event)
+            err = ModifyFile(event)
+            if err != nil {
+                return err
+            }
         case "patch":
-            ModifyFile(event)
+            err = ModifyFile(event)
+            if err != nil {
+                return err
+            }
         case "delete":
-            EventToDelete(event)
+            err = EventToDelete(event)
+            if err != nil {
+                return err
+            }
         default:
             continue
         }
-        EventToCommit(event)
+        err = EventToCommit(event)
+        if err != nil {
+            return err
+        }
     }
+
+    return nil
 }
