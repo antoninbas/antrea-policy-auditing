@@ -16,8 +16,6 @@ import (
 )
 
 var directory string
-// var storer *memory.Storage
-// var fs billy.Filesystem
 
 // TODO: Refactor code to get rid of redundant InMem functions
 
@@ -306,23 +304,3 @@ func stringInSlice(a string, list []string) bool {
     }
     return false
 }
-
-// func listDirectory(path string) {
-// 	entries, err := fs.ReadDir(path)
-// 	for _, entry := range entries {
-// 		fmt.Println(entry.Name(), entry.Size())
-// 	}
-// 	if err != nil {
-// 		return
-// 	}
-// }
-
-// func readFile(path string) {
-// 	var buffer = make([]byte, 3000)
-// 	file, err := fs.Open(path)
-// 	if err != nil {
-// 		return
-// 	}
-// 	file.Read(buffer)
-// 	fmt.Println(string(buffer))
-// }
