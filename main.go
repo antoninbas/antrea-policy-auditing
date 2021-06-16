@@ -3,6 +3,7 @@ package main
 import (
     "fmt"
     . "antrea-audit/git-manager/init"
+    "antrea-audit/webhook"
 )
 
 func main() {
@@ -15,4 +16,5 @@ func main() {
         if err := SetupRepo(k8s, dir); err != nil {
                 fmt.Println(err)
         }
+        webhook.ReceiveEvents()
 }
