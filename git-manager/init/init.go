@@ -6,6 +6,7 @@ import (
     "time"
 	"io/ioutil"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"github.com/ghodss/yaml"
 	"github.com/pkg/errors"
     "github.com/go-git/go-git/v5"
@@ -73,27 +74,19 @@ func addK8sPolicies(k *Kubernetes) error {
 	}
 	var namespaces []string
 	for _, np := range policies.Items {
+		np.TypeMeta = metav1.TypeMeta{
+			Kind: "NetworkPolicy",
+			APIVersion: "networking.k8s.io/v1",
+		}
 		if !stringInSlice(np.Namespace, namespaces) {
 			namespaces = append(namespaces, np.Namespace)
 			os.Mkdir(directory + "/network-policy-repository/k8s-policy/" + np.Namespace, 0700)
 		}
 		path := directory + "/network-policy-repository/k8s-policy/" + np.Namespace + "/" + np.Name + ".yaml"
-		f, err := os.Create(path)
-		if err != nil {
-			return errors.Wrapf(err, "unable to create file for K8s network policy")
-		}
-		defer f.Close()
 		fmt.Println(path)
-		d, err := yaml.Marshal(&np)
+		y, err := yaml.Marshal(&np)
 		if err != nil {
-			fmt.Println("error")
-		}
-		fmt.Println(string(d))
-		//fmt.Println(np)
-
-		y, err := yaml.JSONToYAML([]byte(np.Annotations["kubectl.kubernetes.io/last-applied-configuration"]))
-		if err != nil {
-			return errors.Wrapf(err, "unable to convert network policy object")
+			return errors.Wrapf(err, "unable to marshal policy config")
 		}
 		err = ioutil.WriteFile(path, y, 0644)
 		if err != nil {
@@ -110,16 +103,19 @@ func addAntreaPolicies(k *Kubernetes) error {
 	}
 	var namespaces []string
 	for _, np := range policies.Items {
+		np.TypeMeta = metav1.TypeMeta{
+			Kind: "NetworkPolicy",
+			APIVersion: "crd.antrea.io/v1alpha1",
+		}
 		if !stringInSlice(np.Namespace, namespaces) {
 			namespaces = append(namespaces, np.Namespace)
 			os.Mkdir(directory + "/network-policy-repository/antrea-policy/" + np.Namespace, 0700)
 		}
 		path := directory + "/network-policy-repository/antrea-policy/" + np.Namespace + "/" + np.Name + ".yaml"
 		fmt.Println(path)
-		//fmt.Println(np)
-		y, err := yaml.JSONToYAML([]byte(np.Annotations["kubectl.kubernetes.io/last-applied-configuration"]))
+		y, err := yaml.Marshal(&np)
 		if err != nil {
-			return errors.Wrapf(err, "unable to convert network policy object")
+			return errors.Wrapf(err, "unable to marshal policy config")
 		}
 		err = ioutil.WriteFile(path, y, 0644)
 		if err != nil {
@@ -136,16 +132,19 @@ func addAntreaClusterPolicies(k *Kubernetes) error {
 	}
 	var namespaces []string
 	for _, np := range policies.Items {
+		np.TypeMeta = metav1.TypeMeta{
+			Kind: "ClusterNetworkPolicy",
+			APIVersion: "crd.antrea.io/v1alpha1",
+		}
 		if !stringInSlice(np.Namespace, namespaces) {
 			namespaces = append(namespaces, np.Namespace)
 			os.Mkdir(directory + "/network-policy-repository/antrea-cluster-policy/" + np.Namespace, 0700)
 		}
 		path := directory + "/network-policy-repository/antrea-cluster-policy/" + np.Name + ".yaml"
 		fmt.Println(path)
-		//fmt.Println(np)
-		y, err := yaml.JSONToYAML([]byte(np.Annotations["kubectl.kubernetes.io/last-applied-configuration"]))
+		y, err := yaml.Marshal(&np)
 		if err != nil {
-			return errors.Wrapf(err, "unable to convert network policy object")
+			return errors.Wrapf(err, "unable to marshal policy config")
 		}
 		err = ioutil.WriteFile(path, y, 0644)
 		if err != nil {
