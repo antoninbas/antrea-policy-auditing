@@ -17,7 +17,7 @@ import (
 
 var directory string
 
-func AtomicAdd() (error) {
+func AddAndCommit(username string, email string, message string) (error) {
     r, err := git.PlainOpen(directory+"/network-policy-repository/")
     if err != nil {
         return err
@@ -30,17 +30,6 @@ func AtomicAdd() (error) {
     Info("git add .")
     _, err = w.Add(".")
     return err
-}
-
-func AtomicCommit(username string, email string, message string) (error) {
-    r, err := git.PlainOpen(directory+"/network-policy-repository/")
-    if err != nil {
-        return err
-    }
-    w, err := r.Worktree()
-    if err != nil {
-        return err
-    }
 
     Info("git commit -m \""+message+"\"")
     _, err = w.Commit(message, &git.CommitOptions{
@@ -62,60 +51,27 @@ func GetFileName(event auditv1.Event) (string) {
 }
 
 func EventToCommit(event auditv1.Event) (error) {
-    r, err := git.PlainOpen(directory+"/network-policy-repository/")
-    if err != nil {
-        return err
-    }
-    w, err := r.Worktree()
-
-    Info("git add .")
-    _, err = w.Add(".")
-    if err != nil {
-        return err
-    }
-
-    Info("git commit -m \"Network Policy change commit\"")
-    _, err = w.Commit("Network Policy change commit", &git.CommitOptions{
-        Author: &object.Signature{
-            Name:  event.User.Username,
-            Email: event.User.Username+event.User.UID+"@audit.antrea.io",
-            When:  time.Now(),
-        },
-    })
-    if err != nil {
-        return err
-    }
-
-    return nil
+    return AddAndCommit(event.User.Username, event.User.Username+event.User.UID+"@audit.antrea.io", "Network Policy Change for file: "+GetFileName(event))
 }
 
 func ModifyFile(event auditv1.Event) (error) {
     y, err := yaml.JSONToYAML(event.ResponseObject.Raw)
     if err!=nil {
-        fmt.Printf("error converting json to yaml\n")
         return err
     }
 
-    path := directory+"/network-policy-repository/"+event.ObjectRef.Resource+"/"+event.ObjectRef.Namespace+"/"
+    path := GetRepoPath()
     if _, err := os.Stat(path); os.IsNotExist(err) {
         os.Mkdir(path, 0700)
     }
+    path += GetFileName()
 
-    path += event.ObjectRef.Resource+event.ObjectRef.Namespace+event.ObjectRef.Name+".yaml"
     err = ioutil.WriteFile(path, y, 0644)
-    if err!=nil {
-        fmt.Printf("error writing file\n")
-        return err
-    }
-
-    return nil
+    return err
 }
 
 func EventToDelete(event auditv1.Event) (error) {
-    path := directory+"/network-policy-repository/"+event.ObjectRef.Resource+"/"+event.ObjectRef.Namespace+"/"
-    path += event.ObjectRef.Resource+event.ObjectRef.Namespace+event.ObjectRef.Name+".yaml"
-
-    err := os.Remove(path)
+    err := os.Remove(GetRepoPath(event)+GetFileName(event))
     return err
 }
 
@@ -137,5 +93,6 @@ func HandleEventList(jsonstring string) (error) {
         default:
             continue
         }
+        EventToCommit(event)
     }
 }
