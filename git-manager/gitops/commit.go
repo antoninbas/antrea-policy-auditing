@@ -51,7 +51,7 @@ func GetFileName(event auditv1.Event) (string) {
 }
 
 func EventToCommit(event auditv1.Event) (error) {
-    r, err := git.PlainOpen(directory+"/networkpolicy-repository/")
+    r, err := git.PlainOpen(directory+"/network-policy-repository/")
     if err != nil {
         return err
     }
