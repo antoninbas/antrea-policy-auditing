@@ -3,10 +3,10 @@ package test
 import (
 	// "fmt"
     "testing"
-	"os"
-	"io/ioutil"
 
 	"github.com/stretchr/testify/assert"
+	memfs "github.com/go-git/go-billy/v5/memfs"
+	memory "github.com/go-git/go-git/v5/storage/memory"
 	v1 "k8s.io/api/core/v1"
 	. "antrea-audit/git-manager/init"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -395,25 +395,21 @@ func TestSetupRepo(t *testing.T) {
 }
 
 func runTest(t *testing.T, k8s *Kubernetes, expPaths []string, expYamls []string) {
-	if err := SetupRepo(k8s); err != nil {
+	storer := memory.NewStorage()
+	fs := memfs.New()
+	if err := SetupRepoInMem(k8s, storer, fs); err != nil {
 		t.Errorf("Error (TestSetupRepo): unable to set up repo")
 	}
 	for i, path := range expPaths {
-		cwd, err := os.Getwd()
-		cwd += "/network-policy-repository"
-        if err != nil {
-            t.Errorf("Error (TestSetupRepo): could not retrieve the current working directory")
-        }
-		if _, err := os.Stat(cwd + path); os.IsNotExist(err) {
-			t.Errorf("Error (TestSetupRepo): file was not found in the correct repo subdirectory")
-		}
-		y, err := ioutil.ReadFile(cwd + path)
+		file, err := fs.Open(path)
 		if err != nil {
-			t.Errorf("Error (TestSetupRepo): could not read file")
+			t.Errorf("Error (TestSetupRepo): unable to open file")
 		}
-		assert.Equal(t, string(y), expYamls[i], "Error (TestSetupRepo): file does not match expected YAML")
+		fstat, _ := fs.Stat(path)
+		var buffer = make([]byte, fstat.Size())
+		file.Read(buffer)
+		assert.Equal(t, string(buffer), expYamls[i], "Error (TestSetupRepo): file does not match expected YAML")
 	}
-	os.RemoveAll("./network-policy-repository")
 }
 
 func TestRepoDuplicate(t *testing.T) {
@@ -424,13 +420,14 @@ func TestRepoDuplicate(t *testing.T) {
 		ClientSet: fakeK8sClient,
 		CrdClient: fakeCRDClient,
 	}
-	if err := SetupRepo(k8s); err != nil {
+	storer := memory.NewStorage()
+	fs := memfs.New()
+	if err := SetupRepoInMem(k8s, storer, fs); err != nil {
 		t.Errorf("Error (TestRepoDuplicate): unable to set up repo for the first time")
 	}
-	if err := SetupRepo(k8s); err != nil {
+	if err := SetupRepoInMem(k8s, storer, fs); err != nil {
 		t.Errorf("Error (TestRepoDuplicate): should have detected that repo already exists")
 	}
-	os.RemoveAll("./network-policy-repository")
 }
 
 func newK8sClientSet(objects ...runtime.Object) *fake.Clientset {

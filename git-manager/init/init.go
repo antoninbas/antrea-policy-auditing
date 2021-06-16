@@ -8,7 +8,6 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	billy "github.com/go-git/go-billy/v5"
-	memfs "github.com/go-git/go-billy/v5/memfs"
 	memory "github.com/go-git/go-git/v5/storage/memory"
 	"github.com/ghodss/yaml"
 	"github.com/pkg/errors"
@@ -17,8 +16,8 @@ import (
 )
 
 var directory string
-var storer *memory.Storage
-var fs billy.Filesystem
+// var storer *memory.Storage
+// var fs billy.Filesystem
 
 // TODO: Refactor code to get rid of redundant InMem functions
 
@@ -63,9 +62,7 @@ func SetupRepo(k *Kubernetes) error {
 	return nil
 }
 
-func SetupRepoInMem(k *Kubernetes) error {
-	storer = memory.NewStorage()
-    fs = memfs.New()
+func SetupRepoInMem(k *Kubernetes, storer *memory.Storage, fs billy.Filesystem) error {
 	r, err := git.Init(storer, fs)
     if err == git.ErrRepositoryAlreadyExists {
 		fmt.Println("Repository already exists, skipping initialization")
@@ -78,7 +75,7 @@ func SetupRepoInMem(k *Kubernetes) error {
     if err != nil {
 		return errors.WithMessagef(err, "could not intialize git worktree")
 	}
-	if err := addNetworkPoliciesInMem(k); err != nil {
+	if err := addNetworkPoliciesInMem(k, fs); err != nil {
 		return errors.WithMessagef(err, "couldn't write network policies")
 	}
     _, err = w.Add(".")
@@ -115,17 +112,17 @@ func addNetworkPolicies(k *Kubernetes) error {
 	return nil
 }
 
-func addNetworkPoliciesInMem(k *Kubernetes) error {
+func addNetworkPoliciesInMem(k *Kubernetes, fs billy.Filesystem) error {
 	fs.MkdirAll("k8s-policy", 0700)
 	fs.MkdirAll("antrea-policy", 0700)
 	fs.MkdirAll("antrea-cluster-policy", 0700)
-	if err := addK8sPoliciesInMem(k); err != nil {
+	if err := addK8sPoliciesInMem(k, fs); err != nil {
 		return err
 	}
-	if err := addAntreaPoliciesInMem(k); err != nil {
+	if err := addAntreaPoliciesInMem(k, fs); err != nil {
 		return err
 	}
-	if err := addAntreaClusterPoliciesInMem(k); err != nil {
+	if err := addAntreaClusterPoliciesInMem(k, fs); err != nil {
 		return err
 	}
 	return nil
@@ -160,7 +157,7 @@ func addK8sPolicies(k *Kubernetes) error {
 	return nil
 }
 
-func addK8sPoliciesInMem(k *Kubernetes) error {
+func addK8sPoliciesInMem(k *Kubernetes, fs billy.Filesystem) error {
 	policies, err := k.GetK8sPolicies()
 	if err != nil {
 		return err
@@ -220,7 +217,7 @@ func addAntreaPolicies(k *Kubernetes) error {
 	return nil
 }
 
-func addAntreaPoliciesInMem(k *Kubernetes) error {
+func addAntreaPoliciesInMem(k *Kubernetes, fs billy.Filesystem) error {
 	policies, err := k.GetAntreaPolicies()
 	if err != nil {
 		return err
@@ -275,7 +272,7 @@ func addAntreaClusterPolicies(k *Kubernetes) error {
 	return nil
 }
 
-func addAntreaClusterPoliciesInMem(k *Kubernetes) error {
+func addAntreaClusterPoliciesInMem(k *Kubernetes, fs billy.Filesystem) error {
 	policies, err := k.GetAntreaClusterPolicies()
 	if err != nil {
 		return err
@@ -310,22 +307,22 @@ func stringInSlice(a string, list []string) bool {
     return false
 }
 
-func listDirectory(path string) {
-	entries, err := fs.ReadDir(path)
-	for _, entry := range entries {
-		fmt.Println(entry.Name(), entry.Size())
-	}
-	if err != nil {
-		return
-	}
-}
+// func listDirectory(path string) {
+// 	entries, err := fs.ReadDir(path)
+// 	for _, entry := range entries {
+// 		fmt.Println(entry.Name(), entry.Size())
+// 	}
+// 	if err != nil {
+// 		return
+// 	}
+// }
 
-func readFile(path string) {
-	var buffer = make([]byte, 3000)
-	file, err := fs.Open(path)
-	if err != nil {
-		return
-	}
-	file.Read(buffer)
-	fmt.Println(string(buffer))
-}
+// func readFile(path string) {
+// 	var buffer = make([]byte, 3000)
+// 	file, err := fs.Open(path)
+// 	if err != nil {
+// 		return
+// 	}
+// 	file.Read(buffer)
+// 	fmt.Println(string(buffer))
+// }
