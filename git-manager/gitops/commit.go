@@ -15,12 +15,13 @@ import (
 )
 
 var directory string
+var dirmap = map[string]string{
+    "networkpoliciesnetworking.k8s.io": "k8s-policy",
+    "networkpoliciescrd.antrea.io": "antrea-policy",
+    "clusternetworkpoliciescrd.antrea.io": "antrea-cluster-policy",
+}
 
-func AddAndCommit(username string, email string, message string) (error) {
-    r, err := git.PlainOpen(directory+"/network-policy-repository/")
-    if err != nil {
-        return err
-    }
+func AddAndCommit(repo *git.Repository, username string, email string, message string) (error) {
     w, err := r.Worktree()
     if err != nil {
         return err
@@ -42,15 +43,19 @@ func AddAndCommit(username string, email string, message string) (error) {
 }
 
 func GetRepoPath(event auditv1.Event) (string) {
-    return directory+"/network-policy-repository/"+event.ObjectRef.Resource+"/"+event.ObjectRef.Namespace+"/"
+    return directory+"/network-policy-repository/"+dirmap[event.ObjectRef.Request+event.ObjectRef.APIGroup]+"/"+event.ObjectRef.Namespace+"/"
 }
 
 func GetFileName(event auditv1.Event) (string) {
-    return event.ObjectRef.Resource+event.ObjectRef.Namespace+event.ObjectRef.Name+".yaml"
+    return ObjectRef.Name+".yaml"
 }
 
 func EventToCommit(event auditv1.Event) (error) {
-    return AddAndCommit(event.User.Username, event.User.Username+event.User.UID+"@audit.antrea.io", "Network Policy Change for file: "+GetFileName(event))
+    r, err := git.PlainOpen(directory+"/networkpolicy-repository/")
+    if err != nil {
+        return err
+    }
+    return AddAndCommit(r, event.User.Username, event.User.Username+event.User.UID+"@audit.antrea.io", "Network Policy Change for file: "+GetFileName(event))
 }
 
 func ModifyFile(event auditv1.Event) (error) {
