@@ -21,8 +21,8 @@ var dirmap = map[string]string{
     "clusternetworkpoliciescrd.antrea.io": "antrea-cluster-policy",
 }
 
-func AddAndCommit(repo *git.Repository, username string, email string, message string) (error) {
-    w, err := repo.Worktree()
+func AddAndCommit(r *git.Repository, username string, email string, message string) (error) {
+    w, err := r.Worktree()
     if err != nil {
         return err
     }
