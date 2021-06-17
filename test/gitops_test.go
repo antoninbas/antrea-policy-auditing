@@ -6,25 +6,49 @@ import (
     "io/ioutil"
 
     "antrea-audit/git-manager/gitops"
+    "github.com/go-git/go-git/v5"
 
     billy "github.com/go-git/go-billy/v5"
-	memory "github.com/go-git/go-git/v5/storage/memory"
+    memory "github.com/go-git/go-git/v5/storage/memory"
+    memfs "github.com/go-git/go-billy/v5/memfs"
 )
 
 var directory string
 
 func TestHandleEventList(t *testing.T) {
-    jsonStr, err := ioutil.ReadFile("./files/audit-log.txt")
+    storer := memory.NewStorage()
+    fs := memfs.New()
 
-    err = gitops.HandleEventList(jsonStr)
-
+    err := SetupMemRepo(storer, fs)
     if err != nil {
         fmt.Println(err)
-        t.Errorf("Error (TestHandleEventList): should not return error for correct event list")
+        t.Errorf("should not have error for correct file")
+    }
+
+    r, err := git.Open(storer, fs)
+    if err != nil {
+        fmt.Println(err)
+        t.Errorf("should not have error for correct file")
+    }
+
+    jsonStr, err := ioutil.ReadFile("./files/audit-log.txt")
+    if err != nil {
+        fmt.Println(err)
+        t.Errorf("should not have error for correct file")
+    }
+
+    err = gitops.HandleEventListInMem(r, fs, jsonStr)
+    if err != nil {
+        fmt.Println(err)
+        t.Errorf("should not have error for correct file")
     }
 }
 
 func SetupMemRepo(storer *memory.Storage, fs billy.Filesystem) (error) {
-    os.Mkdir(directory + "/network-policy-repository/", 0700)
-    r, err := git.Init(storer, fs)
+    fs.MkdirAll(directory + "/network-policy-repository/", 0700)
+    _, err := git.Init(storer, fs)
+    fs.MkdirAll(directory + "/network-policy-repository/k8s-policies", 0700)
+    fs.MkdirAll(directory + "/network-policy-repository/antrea-policies", 0700)
+    fs.MkdirAll(directory + "/network-policy-repository/antrea-cluster-policies", 0700)
+    return err
 }
