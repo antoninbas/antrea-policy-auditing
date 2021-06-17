@@ -47,7 +47,7 @@ func GetRepoPath(event auditv1.Event) (string) {
 }
 
 func GetFileName(event auditv1.Event) (string) {
-    return ObjectRef.Name+".yaml"
+    return event.ObjectRef.Name+".yaml"
 }
 
 func EventToCommit(event auditv1.Event) (error) {
