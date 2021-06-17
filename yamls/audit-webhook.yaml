@@ -49,7 +49,7 @@ rules:
   resources: ["networkpolicies"]
   verbs: ["get", "watch", "list"]
 - apiGroups: ["crd.antrea.io"]
-  resources: ["networkpolicies", clusternetworkpolicies"]
+  resources: ["networkpolicies", "clusternetworkpolicies"]
   verbs: ["get", "watch", "list"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
