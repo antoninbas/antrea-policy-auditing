@@ -19,6 +19,7 @@ spec:
         image: stanleywbwong/audit
         ports:
         - containerPort: 8080
+      serviceAccountName: antrea-audit
 ---
 apiVersion: v1
 kind: Service
@@ -32,3 +33,35 @@ spec:
       port: 8080
       targetPort: 8080
   clusterIP: 10.96.0.100
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: antrea-audit
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: antrea-audit
+rules:
+- apiGroups: ["networking.k8s.io"]
+  resources: ["networkpolicies"]
+  verbs: ["get", "watch", "list"]
+- apiGroups: ["crd.antrea.io"]
+  resources: ["networkpolicies", clusternetworkpolicies"]
+  verbs: ["get", "watch", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: antrea-audit
+  namespace: default
+subjects:
+- kind: ServiceAccount
+  name: antrea-audit
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: antrea-audit
+  apiGroup: rbac.authorization.k8s.io
