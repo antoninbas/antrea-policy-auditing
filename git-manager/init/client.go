@@ -38,7 +38,7 @@ func Client() (*kubernetes.Clientset, *crdclientset.Clientset, error) {
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		kubeconfig := filepath.Join(
-			os.Getenv("KUBECONFIG"), //TODO: Update path based on where this file is run from
+			os.Getenv("KUBECONFIG"),
 		)
 		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
 		if err != nil {
