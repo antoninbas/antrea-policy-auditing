@@ -1,7 +1,7 @@
 package test
 
 import (
-	//"fmt"
+	"fmt"
     "testing"
 
 	"github.com/pkg/errors"
@@ -43,7 +43,7 @@ var (
 					Ingress:     []networkingv1.NetworkPolicyIngressRule{{}},
 				},
 		},
-		expPath: "/k8s-policy/nsA/npA.yaml",
+		expPath: "/k8s-policies/nsA/npA.yaml",
 		expYaml: 
 `apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -69,7 +69,7 @@ spec:
 				Egress:      []networkingv1.NetworkPolicyEgressRule{{}},
 			},
 		},
-		expPath: "/k8s-policy/nsA/npB.yaml",
+		expPath: "/k8s-policies/nsA/npB.yaml",
 		expYaml: 
 `apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -123,7 +123,7 @@ spec:
 				},
 			},
 		},
-		expPath: "/k8s-policy/nsB/npC.yaml",
+		expPath: "/k8s-policies/nsB/npC.yaml",
 		expYaml: 
 `apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -200,7 +200,7 @@ spec:
 				},
 			},
 		},
-		expPath: "/antrea-policy/nsA/npA.yaml",
+		expPath: "/antrea-policies/nsA/npA.yaml",
 		expYaml: 
 `apiVersion: crd.antrea.io/v1alpha1
 kind: NetworkPolicy
@@ -292,7 +292,7 @@ status:
 				},
 			},
 		},
-		expPath: "/antrea-cluster-policy/cnpA.yaml",
+		expPath: "/antrea-cluster-policies/cnpA.yaml",
 		expYaml: 
 `apiVersion: crd.antrea.io/v1alpha1
 kind: ClusterNetworkPolicy
@@ -403,6 +403,7 @@ func runTest(t *testing.T, k8s *Kubernetes, expPaths []string, expYamls []string
 		t.Errorf("Error (TestSetupRepo): unable to set up repo")
 	}
 	for i, path := range expPaths {
+		fmt.Println(path)
 		file, err := fs.Open(path)
 		if err != nil {
 			t.Errorf("Error (TestSetupRepo): unable to open file")
