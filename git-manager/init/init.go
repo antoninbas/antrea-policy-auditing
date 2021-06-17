@@ -15,7 +15,8 @@ import (
 )
 
 func SetupRepo(k *Kubernetes, dir string) error {
-	if err := createRepo(k, dir); err != nil {
+	r, err := createRepo(k, &dir)
+	if err != nil {
 		return errors.WithMessagef(err, "couldn't create repo")
 	}
 	if err := addNetworkPolicies(k, dir); err != nil {
@@ -26,20 +27,22 @@ func SetupRepo(k *Kubernetes, dir string) error {
 	return nil
 }
 
-func createRepo(k *Kubernetes, dir string) error {
-    if dir == "" {
+func createRepo(k *Kubernetes, dir *string) (*git.Repository, error) {
+    if *dir == "" {
         path, err := os.Getwd()
         if err != nil {
-            return errors.WithMessagef(err, "could not retrieve the current working directory")
+            return nil, errors.WithMessagef(err, "could not retrieve the current working directory")
         }
-        dir = path
+        *dir = path
     }
-    r, err := git.PlainInit(dir + "/network-policy-repository/", false)
+	*dir += "/network-policy-repository"
+    r, err := git.PlainInit(*dir, false)
     if err == git.ErrRepositoryAlreadyExists {
-		return errors.WithMessagef(err, "Skipping initialization")
+		return nil, errors.WithMessagef(err, "Skipping initialization")
 	} else if err != nil {
-		return errors.WithMessagef(err, "could not initialize git repo")
+		return nil, errors.WithMessagef(err, "could not initialize git repo")
 	}
+	return r, nil
 }
 
 func SetupRepoInMem(k *Kubernetes, storer *memory.Storage, fs billy.Filesystem) error {
@@ -58,9 +61,9 @@ func SetupRepoInMem(k *Kubernetes, storer *memory.Storage, fs billy.Filesystem) 
 }
 
 func addNetworkPolicies(k *Kubernetes, dir string) error {
-    os.Mkdir(dir + "/network-policy-repository/k8s-policies", 0700)
-    os.Mkdir(dir + "/network-policy-repository/antrea-policies", 0700)
-    os.Mkdir(dir + "/network-policy-repository/antrea-cluster-policies", 0700)
+    os.Mkdir(dir + "/k8s-policies", 0700)
+    os.Mkdir(dir + "/antrea-policies", 0700)
+    os.Mkdir(dir + "/antrea-cluster-policies", 0700)
 	if err := addK8sPolicies(k, dir); err != nil {
 		return err
 	}
@@ -102,9 +105,9 @@ func addK8sPolicies(k *Kubernetes, dir string) error {
 		}
 		if !stringInSlice(np.Namespace, namespaces) {
 			namespaces = append(namespaces, np.Namespace)
-			os.Mkdir(dir + "/network-policy-repository/k8s-policies/" + np.Namespace, 0700)
+			os.Mkdir(dir + "/k8s-policies/" + np.Namespace, 0700)
 		}
-		path := dir + "/network-policy-repository/k8s-policies/" + np.Namespace + "/" + np.Name + ".yaml"
+		path := dir + "/k8s-policies/" + np.Namespace + "/" + np.Name + ".yaml"
 		fmt.Println("Added "+path)
 		y, err := yaml.Marshal(&np)
 		if err != nil {
@@ -162,9 +165,9 @@ func addAntreaPolicies(k *Kubernetes, dir string) error {
 		}
 		if !stringInSlice(np.Namespace, namespaces) {
 			namespaces = append(namespaces, np.Namespace)
-			os.Mkdir(dir + "/network-policy-repository/antrea-policies/" + np.Namespace, 0700)
+			os.Mkdir(dir + "/antrea-policies/" + np.Namespace, 0700)
 		}
-		path := dir + "/network-policy-repository/antrea-policies/" + np.Namespace + "/" + np.Name + ".yaml"
+		path := dir + "/antrea-policies/" + np.Namespace + "/" + np.Name + ".yaml"
 		fmt.Println("Added "+path)
 		y, err := yaml.Marshal(&np)
 		if err != nil {
@@ -219,7 +222,7 @@ func addAntreaClusterPolicies(k *Kubernetes, dir string) error {
 			Kind: "ClusterNetworkPolicy",
 			APIVersion: "crd.antrea.io/v1alpha1",
 		}
-		path := dir + "/network-policy-repository/antrea-cluster-policies/" + np.Name + ".yaml"
+		path := dir + "/antrea-cluster-policies/" + np.Name + ".yaml"
 		fmt.Println("Added "+path)
 		y, err := yaml.Marshal(&np)
 		if err != nil {
