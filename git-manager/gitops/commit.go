@@ -43,7 +43,7 @@ func AddAndCommit(r *git.Repository, username string, email string, message stri
 }
 
 func GetRepoPath(event auditv1.Event) (string) {
-    return directory+"/network-policy-repository/"+dirmap[event.ObjectRef.Request+event.ObjectRef.APIGroup]+"/"+event.ObjectRef.Namespace+"/"
+    return directory+"/network-policy-repository/"+dirmap[event.ObjectRef.Resource+event.ObjectRef.APIGroup]+"/"+event.ObjectRef.Namespace+"/"
 }
 
 func GetFileName(event auditv1.Event) (string) {
