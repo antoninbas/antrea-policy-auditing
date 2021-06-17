@@ -2,7 +2,6 @@ package gitops
 
 import (
     "os"
-    "fmt"
     "time"
     "bytes"
     "io/ioutil"
@@ -117,7 +116,6 @@ func HandleEventList(jsonstring []byte) (error) {
         if event.Stage != "ResponseComplete" || event.ResponseStatus.Status == "Failure" {
             continue
         }
-
         switch verb := event.Verb; verb {
         case "create":
             err = ModifyFile(event)

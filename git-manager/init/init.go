@@ -15,6 +15,18 @@ import (
 )
 
 func SetupRepo(k *Kubernetes, dir string) error {
+	if err := createRepo(k, dir); err != nil {
+		return errors.WithMessagef(err, "couldn't create repo")
+	}
+	if err := addNetworkPolicies(k, dir); err != nil {
+		return errors.WithMessagef(err, "couldn't write network policies")
+	}
+	AddAndCommit(r, "audit-init", "system@audit.antrea.io", "initial commit of existing policies")
+	fmt.Println("Repository successfully initialized")
+	return nil
+}
+
+func createRepo(k *Kubernetes, dir string) error {
     if dir == "" {
         path, err := os.Getwd()
         if err != nil {
@@ -28,12 +40,6 @@ func SetupRepo(k *Kubernetes, dir string) error {
 	} else if err != nil {
 		return errors.WithMessagef(err, "could not initialize git repo")
 	}
-	if err := addNetworkPolicies(k, dir); err != nil {
-		return errors.WithMessagef(err, "couldn't write network policies")
-	}
-	AddAndCommit(r, "audit-init", "system@audit.antrea.io", "initial commit of existing policies")
-	fmt.Println("Repository successfully initialized")
-	return nil
 }
 
 func SetupRepoInMem(k *Kubernetes, storer *memory.Storage, fs billy.Filesystem) error {
