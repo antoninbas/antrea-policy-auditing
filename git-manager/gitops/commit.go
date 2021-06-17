@@ -154,6 +154,9 @@ func HandleEventListInMem(r *git.Repository, fs billy.Filesystem, jsonstring []b
     }
 
     for _,event := range eventList.Items {
+        if event.Stage != "ResponseComplete" || event.ResponseStatus.Status == "Failure" {
+            continue
+        }
         switch verb := event.Verb; verb {
         case "create":
             err = ModifyFileInMem(fs, event)
