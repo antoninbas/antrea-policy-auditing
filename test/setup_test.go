@@ -392,11 +392,11 @@ func TestSetupRepo(t *testing.T) {
 			ClientSet: fakeK8sClient,
 			CrdClient: fakeCRDClient,
 		}
-		runTest(t, k8s, expectedPaths, expectedYamls)
+		runSetupTest(t, k8s, expectedPaths, expectedYamls)
 	}
 }
 
-func runTest(t *testing.T, k8s *Kubernetes, expPaths []string, expYamls []string) {
+func runSetupTest(t *testing.T, k8s *Kubernetes, expPaths []string, expYamls []string) {
 	storer := memory.NewStorage()
 	fs := memfs.New()
 	if err := SetupRepoInMem(k8s, storer, fs); err != nil {
