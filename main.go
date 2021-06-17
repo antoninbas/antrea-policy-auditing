@@ -2,19 +2,29 @@ package main
 
 import (
     "fmt"
+    "flag"
     . "antrea-audit/git-manager/init"
     "antrea-audit/webhook"
 )
 
+func processArgs(portFlag *string, dirFlag *string) {
+    flag.StringVar(portFlag, "p", "8080", "specifies port that audit webhook listens on, default 8080")
+    flag.StringVar(dirFlag, "d", "", "path to which network policy repository is created, default current working directory)")
+    flag.Parse()
+}
+
 func main() {
-        k8s, err := NewKubernetes()
-        if err != nil {
-                fmt.Println(err)
-        }
-        // TODO: Process directory from flag
-        var dir = ""
-        if err := SetupRepo(k8s, dir); err != nil {
-                fmt.Println(err)
-        }
-        webhook.ReceiveEvents()
+    var (
+        portFlag string
+        dirFlag string
+    )
+    processArgs(&portFlag, &dirFlag)
+    k8s, err := NewKubernetes()
+    if err != nil {
+            fmt.Println(err)
+    }
+    if err := SetupRepo(k8s, dirFlag); err != nil {
+            fmt.Println(err)
+    }
+    webhook.ReceiveEvents(portFlag)
 }
