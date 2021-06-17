@@ -7,7 +7,6 @@ import (
     "encoding/json"
 
     "github.com/go-git/go-git/v5"
-    . "github.com/go-git/go-git/v5/_examples"
     "github.com/go-git/go-git/v5/plumbing/object"
     "github.com/ghodss/yaml"
 
@@ -27,11 +26,11 @@ func AddAndCommit(r *git.Repository, username string, email string, message stri
         return err
     }
 
-    Info("git add .")
     _, err = w.Add(".")
-    return err
+    if err != nil {
+        return err
+    }
 
-    Info("git commit -m \""+message+"\"")
     _, err = w.Commit(message, &git.CommitOptions{
         Author: &object.Signature{
             Name: username,
@@ -39,7 +38,10 @@ func AddAndCommit(r *git.Repository, username string, email string, message stri
             When: time.Now(),
         },
     })
-    return err
+    if err != nil {
+        return err
+    }
+    return nil
 }
 
 func GetRepoPath(event auditv1.Event) (string) {
@@ -87,6 +89,9 @@ func HandleEventList(jsonstring []byte) (error) {
     }
 
     for _,event := range eventList.Items {
+        if event.Stage != "ResponseComplete" || event.ResponseStatus.Status == "Failure" {
+            continue
+        }
         switch verb := event.Verb; verb {
         case "create":
             err = ModifyFile(event)
