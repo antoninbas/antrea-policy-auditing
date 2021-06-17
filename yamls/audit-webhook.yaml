@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: audit
-        image: stanleywbwong/audit
+        image: stanleywbwong/antrea-audit
         ports:
         - containerPort: 8080
       serviceAccountName: antrea-audit
