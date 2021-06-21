@@ -37,7 +37,7 @@ func TestHandleEventList(t *testing.T) {
         t.Errorf("should not have error for correct file")
     }
 
-    err = gitops.HandleEventListInMem(r, fs, jsonStr)
+    err = gitops.HandleEventListInMem(directory, r, fs, jsonStr)
     if err != nil {
         fmt.Println(err)
         t.Errorf("should not have error for correct file")

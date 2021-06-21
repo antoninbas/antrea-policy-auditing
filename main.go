@@ -22,9 +22,11 @@ func main() {
     k8s, err := NewKubernetes()
     if err != nil {
             fmt.Println(err)
+            return
     }
-    if err := SetupRepo(k8s, dirFlag); err != nil {
+    if err := SetupRepo(k8s, &dirFlag); err != nil {
             fmt.Println(err)
+            return
     }
-    webhook.ReceiveEvents(portFlag)
+    webhook.ReceiveEvents(dirFlag, portFlag)
 }

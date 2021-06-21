@@ -14,12 +14,12 @@ import (
     "github.com/go-git/go-git/v5"
 )
 
-func SetupRepo(k *Kubernetes, dir string) error {
-	r, err := createRepo(k, &dir)
+func SetupRepo(k *Kubernetes, dir *string) error {
+	r, err := createRepo(k, dir)
 	if err != nil {
 		return errors.WithMessagef(err, "couldn't create repo")
 	}
-	if err := addNetworkPolicies(k, dir); err != nil {
+	if err := addNetworkPolicies(k, *dir); err != nil {
 		return errors.WithMessagef(err, "couldn't write network policies")
 	}
 	AddAndCommit(r, "audit-init", "system@audit.antrea.io", "initial commit of existing policies")

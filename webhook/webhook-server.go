@@ -9,15 +9,17 @@ import (
     "antrea-audit/git-manager/gitops"
 )
 
-func ReceiveEvents(port string) {
+func ReceiveEvents(dir string, port string) {
     http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
         defer r.Body.Close()
         body, err := ioutil.ReadAll(r.Body)
         if err != nil {
-            return
+            fmt.Println(err)
         }
         fmt.Printf("%s\n", string(body))
-        gitops.HandleEventList(body)
+        if err := gitops.HandleEventList(dir, body); err != nil {
+            fmt.Println(err)
+        }
     })
     fmt.Println("Server listening on port", port)
     if err := http.ListenAndServe(":"+string(port), nil); err != nil {
