@@ -2,6 +2,7 @@ package gitops
 
 import (
     "os"
+    // "fmt"
     "time"
     "bytes"
     "io/ioutil"
@@ -62,13 +63,13 @@ func ModifyFile(dir string, event auditv1.Event) (error) {
     if err!=nil {
         return err
     }
-    
+
     path := GetRepoPath(dir, event)
     if _, err := os.Stat(path); os.IsNotExist(err) {
         os.Mkdir(path, 0700)
     }
     path += GetFileName(event)
-    
+
     err = ioutil.WriteFile(path, y, 0644)
     return err
 }
