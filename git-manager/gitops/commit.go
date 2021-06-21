@@ -2,7 +2,6 @@ package gitops
 
 import (
     "os"
-    "fmt"
     "time"
     "bytes"
     "io/ioutil"
