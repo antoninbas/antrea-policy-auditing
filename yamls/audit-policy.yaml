@@ -6,4 +6,4 @@ rules:
     - group: "networking.k8s.io"
       resources: ["networkpolicies"]
     - group: "crd.antrea.io"
-      resources: ["networkpolicies","clusternetworkpolicies"]
+      resources: ["networkpolicies","clusternetworkpolicies","tiers"]
