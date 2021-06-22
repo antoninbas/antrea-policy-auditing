@@ -22,7 +22,7 @@ func SetupRepo(k *Kubernetes, dir *string) error {
 	if err := addNetworkPolicies(k, *dir); err != nil {
 		return errors.WithMessagef(err, "couldn't write network policies")
 	}
-	AddAndCommit(r, "audit-init", "system@audit.antrea.io", "initial commit of existing policies")
+	AddAndCommit(r, "audit-init", "system@audit.antrea.io", "Initial commit of existing policies")
 	fmt.Println("Repository successfully initialized")
 	return nil
 }
