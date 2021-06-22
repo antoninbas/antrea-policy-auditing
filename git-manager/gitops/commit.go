@@ -114,7 +114,7 @@ func HandleEventList(dir string, jsonstring []byte) (error) {
             return err
         }
         user := event.User.Username
-        email := event.User.Username+event.User.UID+"@audit.antrea.io"
+        email := event.User.Username+"+"+event.User.UID+"@audit.antrea.io"
         message := resourceMap[event.ObjectRef.Resource+event.ObjectRef.APIGroup]+event.ObjectRef.Name
         switch verb := event.Verb; verb {
         case "create":
@@ -157,7 +157,7 @@ func HandleEventListInMem(dir string, r *git.Repository, fs billy.Filesystem, js
             continue
         }
         user := event.User.Username
-        email := event.User.Username+event.User.UID+"@audit.antrea.io"
+        email := event.User.Username+"+"+event.User.UID+"@audit.antrea.io"
         message := resourceMap[event.ObjectRef.Resource+event.ObjectRef.APIGroup]+event.ObjectRef.Name
         switch verb := event.Verb; verb {
         case "create":
