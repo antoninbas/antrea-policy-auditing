@@ -304,7 +304,7 @@ func addAntreaTiersInMem(k *Kubernetes, fs billy.Filesystem) error {
 			Kind: "Tier",
 			APIVersion: "crd.antrea.io/v1alpha1",
 		}
-		path := "antrea-policies/" + tier.Name + ".yaml"
+		path := "antrea-tiers/" + tier.Name + ".yaml"
 		fmt.Println("Added "+path)
 		y, err := yaml.Marshal(&tier)
 		if err != nil {
