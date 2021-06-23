@@ -20,12 +20,14 @@ var dirMap = map[string]string{
     "networkpoliciesnetworking.k8s.io": "k8s-policies",
     "networkpoliciescrd.antrea.io": "antrea-policies",
     "clusternetworkpoliciescrd.antrea.io": "antrea-cluster-policies",
+    "tierscrd.antrea.io": "antrea-tiers",
 }
 
 var resourceMap = map[string]string{
     "networkpoliciesnetworking.k8s.io": "K8s network policy ",
     "networkpoliciescrd.antrea.io": "Antrea network policy ",
     "clusternetworkpoliciescrd.antrea.io": "Antrea cluster network policy ",
+    "tierscrd.antrea.io": "Antrea tier ",
 }
 
 func AddAndCommit(r *git.Repository, username string, email string, message string) (error) {

@@ -79,3 +79,11 @@ func (k *Kubernetes) GetAntreaClusterPolicies() (*v1alpha1.ClusterNetworkPolicyL
 	}
 	return l, nil
 }
+
+func (k *Kubernetes) GetAntreaTiers() (*v1alpha1.TierList, error) {
+	l, err := k.CrdClient.CrdV1alpha1().Tiers().List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to list antrea tiers")
+	}
+	return l, nil
+}

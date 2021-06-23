@@ -19,7 +19,7 @@ func SetupRepo(k *Kubernetes, dir *string) error {
 	if err != nil {
 		return errors.WithMessagef(err, "couldn't create repo")
 	}
-	if err := addNetworkPolicies(k, *dir); err != nil {
+	if err := addResources(k, *dir); err != nil {
 		return errors.WithMessagef(err, "couldn't write network policies")
 	}
 	AddAndCommit(r, "audit-init", "system@audit.antrea.io", "Initial commit of existing policies")
@@ -52,7 +52,7 @@ func SetupRepoInMem(k *Kubernetes, storer *memory.Storage, fs billy.Filesystem) 
 	} else if err != nil {
 		return errors.WithMessagef(err, "could not initialize git repo")
 	}
-	if err := addNetworkPoliciesInMem(k, fs); err != nil {
+	if err := addResourcesInMem(k, fs); err != nil {
 		return errors.WithMessagef(err, "couldn't write network policies")
 	}
 	AddAndCommit(r, "audit-init", "system@audit.antrea.io", "initial commit of existing policies")
@@ -60,10 +60,11 @@ func SetupRepoInMem(k *Kubernetes, storer *memory.Storage, fs billy.Filesystem) 
 	return nil
 }
 
-func addNetworkPolicies(k *Kubernetes, dir string) error {
+func addResources(k *Kubernetes, dir string) error {
     os.Mkdir(dir + "/k8s-policies", 0700)
     os.Mkdir(dir + "/antrea-policies", 0700)
     os.Mkdir(dir + "/antrea-cluster-policies", 0700)
+	os.Mkdir(dir + "/antrea-tiers", 0700)
 	if err := addK8sPolicies(k, dir); err != nil {
 		return err
 	}
@@ -73,13 +74,17 @@ func addNetworkPolicies(k *Kubernetes, dir string) error {
 	if err := addAntreaClusterPolicies(k, dir); err != nil {
 		return err
 	}
+	if err := addAntreaTiers(k, dir); err != nil {
+		return err
+	}
 	return nil
 }
 
-func addNetworkPoliciesInMem(k *Kubernetes, fs billy.Filesystem) error {
+func addResourcesInMem(k *Kubernetes, fs billy.Filesystem) error {
 	fs.MkdirAll("k8s-policies", 0700)
 	fs.MkdirAll("antrea-policies", 0700)
 	fs.MkdirAll("antrea-cluster-policies", 0700)
+	fs.MkdirAll("antrea-tiers", 0700)
 	if err := addK8sPoliciesInMem(k, fs); err != nil {
 		return err
 	}
@@ -87,6 +92,9 @@ func addNetworkPoliciesInMem(k *Kubernetes, fs billy.Filesystem) error {
 		return err
 	}
 	if err := addAntreaClusterPoliciesInMem(k, fs); err != nil {
+		return err
+	}
+	if err := addAntreaTiersInMem(k, fs); err != nil {
 		return err
 	}
 	return nil
@@ -251,6 +259,56 @@ func addAntreaClusterPoliciesInMem(k *Kubernetes, fs billy.Filesystem) error {
 		y, err := yaml.Marshal(&np)
 		if err != nil {
 			return errors.Wrapf(err, "unable to marshal policy config")
+		}
+		newFile, err := fs.Create(path)
+		if err != nil {
+			return errors.Wrapf(err, "unable to create file")
+		}
+		newFile.Write(y)
+		newFile.Close()
+	}
+	return nil
+}
+
+func addAntreaTiers(k *Kubernetes, dir string) error {
+	tiers, err := k.GetAntreaTiers()
+	if err != nil {
+		return err
+	}
+	for _, tier := range tiers.Items {
+		tier.TypeMeta = metav1.TypeMeta{
+			Kind: "Tier",
+			APIVersion: "crd.antrea.io/v1alpha1",
+		}
+		path := dir + "/antrea-tiers/" + tier.Name + ".yaml"
+		fmt.Println("Added "+path)
+		y, err := yaml.Marshal(&tier)
+		if err != nil {
+			return errors.Wrapf(err, "unable to marshal tier config")
+		}
+		err = ioutil.WriteFile(path, y, 0644)
+		if err != nil {
+			return errors.Wrapf(err, "unable to write tier config to file")
+		}
+	}
+	return nil
+}
+
+func addAntreaTiersInMem(k *Kubernetes, fs billy.Filesystem) error {
+	tiers, err := k.GetAntreaTiers()
+	if err != nil {
+		return err
+	}
+	for _, tier := range tiers.Items {
+		tier.TypeMeta = metav1.TypeMeta{
+			Kind: "Tier",
+			APIVersion: "crd.antrea.io/v1alpha1",
+		}
+		path := "antrea-policies/" + tier.Name + ".yaml"
+		fmt.Println("Added "+path)
+		y, err := yaml.Marshal(&tier)
+		if err != nil {
+			return errors.Wrapf(err, "unable to marshal tier config")
 		}
 		newFile, err := fs.Create(path)
 		if err != nil {
