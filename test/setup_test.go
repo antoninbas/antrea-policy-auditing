@@ -20,8 +20,8 @@ import (
 	crdv1alpha1 "antrea.io/antrea/pkg/apis/crd/v1alpha1"
 )
 
-type test_policy struct {
-	inputPolicy runtime.Object
+type test_resource struct {
+	inputResource runtime.Object
 	expPath string
 	expYaml string
 }
@@ -34,8 +34,8 @@ var (
 	int80 = intstr.FromInt(80)
 	int81 = intstr.FromInt(81)
 	allowAction = crdv1alpha1.RuleActionAllow
-	np1 = test_policy{
-		inputPolicy: &networkingv1.NetworkPolicy{
+	np1 = test_resource{
+		inputResource: &networkingv1.NetworkPolicy{
 				ObjectMeta: metav1.ObjectMeta{Namespace: "nsA", Name: "npA", UID: "uidA"},
 				Spec: networkingv1.NetworkPolicySpec{
 					PodSelector: metav1.LabelSelector{},
@@ -60,8 +60,8 @@ spec:
   - Ingress
 `,
 	}
-	np2 = test_policy{
-		inputPolicy: &networkingv1.NetworkPolicy{
+	np2 = test_resource{
+		inputResource: &networkingv1.NetworkPolicy{
 			ObjectMeta: metav1.ObjectMeta{Namespace: "nsA", Name: "npB", UID: "uidB"},
 			Spec: networkingv1.NetworkPolicySpec{
 				PodSelector: metav1.LabelSelector{},
@@ -86,8 +86,8 @@ spec:
   - Egress
 `,
 	}
-	np3 = test_policy{
-		inputPolicy: &networkingv1.NetworkPolicy{
+	np3 = test_resource{
+		inputResource: &networkingv1.NetworkPolicy{
 			ObjectMeta: metav1.ObjectMeta{Namespace: "nsB", Name: "npC", UID: "uidC"},
 			Spec: networkingv1.NetworkPolicySpec{
 				PodSelector: selectorA,
@@ -158,8 +158,8 @@ spec:
       foo1: bar1
 `,
 	}
-	anp1 = test_policy{
-		inputPolicy: &crdv1alpha1.NetworkPolicy{
+	anp1 = test_resource{
+		inputResource: &crdv1alpha1.NetworkPolicy{
 			ObjectMeta: metav1.ObjectMeta{Namespace: "nsA", Name: "npA", UID: "uidA"},
 			Spec: crdv1alpha1.NetworkPolicySpec{
 				AppliedTo: []crdv1alpha1.NetworkPolicyPeer{
@@ -250,8 +250,8 @@ status:
   phase: ""
 `,
 	}
-	acnp1 = test_policy{
-		inputPolicy: &crdv1alpha1.ClusterNetworkPolicy{
+	acnp1 = test_resource{
+		inputResource: &crdv1alpha1.ClusterNetworkPolicy{
 			ObjectMeta: metav1.ObjectMeta{Name: "cnpA", UID: "uidA"},
 			Spec: crdv1alpha1.ClusterNetworkPolicySpec{
 				AppliedTo: []crdv1alpha1.NetworkPolicyPeer{
@@ -341,52 +341,79 @@ status:
   phase: ""
 `,
 	}
+	tier1 = test_resource{
+		inputResource: &crdv1alpha1.Tier{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "TierA",
+			},
+			Spec: crdv1alpha1.TierSpec{
+				Priority: 10,
+				Description: "This is a test tier",
+			},
+		},
+		expPath: "/antrea-tiers/TierA.yaml",
+		expYaml:
+`apiVersion: crd.antrea.io/v1alpha1
+kind: Tier
+metadata:
+  creationTimestamp: null
+  name: TierA
+spec:
+  description: This is a test tier
+  priority: 10
+`,
+	}
 )
 
 func TestSetupRepo(t *testing.T) {
 	tests := []struct {
 		name string
-		inputK8sPolicies []test_policy
-		inputCRDPolicies []test_policy
+		inputK8sResources []test_resource
+		inputCRDResources []test_resource
 	}{
 		{
 			name: "empty-test",
-			inputK8sPolicies: []test_policy{},
-			inputCRDPolicies: []test_policy{},
+			inputK8sResources: []test_resource{},
+			inputCRDResources: []test_resource{},
 		},
 		{
 			name: "basic-test",
-			inputK8sPolicies: []test_policy{np1, np2, np3},
-			inputCRDPolicies: []test_policy{anp1, acnp1},
+			inputK8sResources: []test_resource{np1, np2, np3},
+			inputCRDResources: []test_resource{anp1, acnp1},
 		},
 		{
 			name: "empty-K8s-test",
-			inputK8sPolicies: []test_policy{},
-			inputCRDPolicies: []test_policy{anp1, acnp1},
+			inputK8sResources: []test_resource{},
+			inputCRDResources: []test_resource{anp1, acnp1},
 		},
 		{
 			name: "empty-CRDs-test",
-			inputK8sPolicies: []test_policy{np1, np2},
-			inputCRDPolicies: []test_policy{},
+			inputK8sResources: []test_resource{np1, np2},
+			inputCRDResources: []test_resource{},
+		},
+		{
+			name: "tiers-test",
+			inputK8sResources: []test_resource{np1, np2},
+			inputCRDResources: []test_resource{anp1, tier1},
 		},
 	}
 	for _, test := range tests {
 		var expectedPaths = []string{}
 		var expectedYamls = []string{}
-		var k8sPolicies = []runtime.Object{}
-		for _, policy := range test.inputK8sPolicies {
-			k8sPolicies = append(k8sPolicies, policy.inputPolicy)
-			expectedPaths = append(expectedPaths, policy.expPath)
-			expectedYamls = append(expectedYamls, policy.expYaml)
+		var k8sResources = []runtime.Object{}
+		for _, resource := range test.inputK8sResources {
+			k8sResources = append(k8sResources, resource.inputResource)
+			expectedPaths = append(expectedPaths, resource.expPath)
+			expectedYamls = append(expectedYamls, resource.expYaml)
 		}
-		var crdPolicies = []runtime.Object{}
-		for _, policy := range test.inputCRDPolicies {
-			crdPolicies = append(crdPolicies, policy.inputPolicy)
-			expectedPaths = append(expectedPaths, policy.expPath)
-			expectedYamls = append(expectedYamls, policy.expYaml)
+		var crdResources = []runtime.Object{}
+		for _, resource := range test.inputCRDResources {
+			crdResources = append(crdResources, resource.inputResource)
+			expectedPaths = append(expectedPaths, resource.expPath)
+			expectedYamls = append(expectedYamls, resource.expYaml)
 		}
-		fakeK8sClient := newK8sClientSet(k8sPolicies...)
-		fakeCRDClient := newCRDClientSet(crdPolicies...)
+		fakeK8sClient := newK8sClientSet(k8sResources...)
+		fakeCRDClient := newCRDClientSet(crdResources...)
 		k8s := &Kubernetes{
 			PodCache:  map[string][]v1.Pod{},
 			ClientSet: fakeK8sClient,
@@ -416,8 +443,8 @@ func runSetupTest(t *testing.T, k8s *Kubernetes, expPaths []string, expYamls []s
 }
 
 func TestRepoDuplicate(t *testing.T) {
-	fakeK8sClient := newK8sClientSet(np1.inputPolicy)
-	fakeCRDClient := newCRDClientSet(anp1.inputPolicy)
+	fakeK8sClient := newK8sClientSet(np1.inputResource)
+	fakeCRDClient := newCRDClientSet(anp1.inputResource)
 	k8s := &Kubernetes{
 		PodCache:  map[string][]v1.Pod{},
 		ClientSet: fakeK8sClient,
