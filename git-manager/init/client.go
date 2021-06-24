@@ -1,12 +1,13 @@
 package init
 
 import (
-	"k8s.io/client-go/rest"
 	"os"
 	"path/filepath"
 	"context"
 
 	"github.com/pkg/errors"
+	"k8s.io/klog/v2"
+	"k8s.io/client-go/rest"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	networking "k8s.io/api/networking/v1"
@@ -25,7 +26,7 @@ type Kubernetes struct {
 func NewKubernetes() (*Kubernetes, error) {
 	clientSet, crdClientSet, err := Client()
 	if err != nil {
-		return nil, errors.WithMessagef(err, "unable to instantiate kube client")
+		return nil, errors.WithMessagef(err, "unable to instantiate clientsets")
 	}
 	return &Kubernetes{
 		PodCache:  map[string][]v1.Pod{},
@@ -42,16 +43,19 @@ func Client() (*kubernetes.Clientset, *crdclientset.Clientset, error) {
 		)
 		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
 		if err != nil {
-			return nil, nil, errors.WithMessagef(err, "unable to build config from flags, check that your KUBECONFIG file is correct !")
+			klog.ErrorS(err, "unable to build config from flags, check that your KUBECONFIG file is correct!")
+			return nil, nil, err
 		}
 	}
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		return nil, nil, errors.WithMessagef(err, "unable to instantiate clientset")
+		klog.ErrorS(err, "unable to instantiate clientset")
+		return nil, nil, err
 	}
 	crdclient, err := crdclientset.NewForConfig(config)
 	if err != nil {
-		return nil, nil, errors.WithMessagef(err, "unable to instantiate crdclientset")
+		klog.ErrorS(err, "unable to instantiate crdclientset")
+		return nil, nil, err
 	}
 	return clientset, crdclient, nil
 }
@@ -59,7 +63,7 @@ func Client() (*kubernetes.Clientset, *crdclientset.Clientset, error) {
 func (k *Kubernetes) GetK8sPolicies() (*networking.NetworkPolicyList, error) {
 	l, err := k.ClientSet.NetworkingV1().NetworkPolicies("").List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
-		return nil, errors.Wrapf(err, "unable to list network policies")
+		return nil, err
 	}
 	return l, nil
 }
@@ -67,7 +71,7 @@ func (k *Kubernetes) GetK8sPolicies() (*networking.NetworkPolicyList, error) {
 func (k *Kubernetes) GetAntreaPolicies() (*v1alpha1.NetworkPolicyList, error) {
 	l, err := k.CrdClient.CrdV1alpha1().NetworkPolicies("").List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
-		return nil, errors.Wrapf(err, "unable to list antrea network policies")
+		return nil, err
 	}
 	return l, nil
 }
@@ -75,7 +79,7 @@ func (k *Kubernetes) GetAntreaPolicies() (*v1alpha1.NetworkPolicyList, error) {
 func (k *Kubernetes) GetAntreaClusterPolicies() (*v1alpha1.ClusterNetworkPolicyList, error) {
 	l, err := k.CrdClient.CrdV1alpha1().ClusterNetworkPolicies().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
-		return nil, errors.Wrapf(err, "unable to list antrea cluster network policies")
+		return nil, err
 	}
 	return l, nil
 }
@@ -83,7 +87,7 @@ func (k *Kubernetes) GetAntreaClusterPolicies() (*v1alpha1.ClusterNetworkPolicyL
 func (k *Kubernetes) GetAntreaTiers() (*v1alpha1.TierList, error) {
 	l, err := k.CrdClient.CrdV1alpha1().Tiers().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
-		return nil, errors.Wrapf(err, "unable to list antrea tiers")
+		return nil, err
 	}
 	return l, nil
 }

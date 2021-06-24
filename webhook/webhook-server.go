@@ -1,28 +1,30 @@
 package webhook
 
 import (
-    "fmt"
-    "log"
     "io/ioutil"
     "net/http"
 
     "antrea-audit/git-manager/gitops"
+
+    "k8s.io/klog/v2"
 )
 
-func ReceiveEvents(dir string, port string) {
+func ReceiveEvents(dir string, port string) error {
     http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
         defer r.Body.Close()
         body, err := ioutil.ReadAll(r.Body)
         if err != nil {
-            fmt.Println(err)
+            klog.ErrorS(err, "unable to read audit body")
         }
-        fmt.Printf("%s\n", string(body))
+        klog.V(2).Infof("Audit received: %s", string(body))
         if err := gitops.HandleEventList(dir, body); err != nil {
-            fmt.Println(err)
+            klog.ErrorS(err, "unable to process audit event list")
         }
     })
-    fmt.Println("Server listening on port", port)
+    klog.V(2).Infof("Audit webhook server started, listening on port %s", port)
     if err := http.ListenAndServe(":"+string(port), nil); err != nil {
-	    log.Fatal(err)
+	    klog.ErrorS(err, "Audit webhook service died")
+        return err
     }
+    return nil
 }

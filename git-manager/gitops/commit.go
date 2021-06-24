@@ -2,7 +2,6 @@ package gitops
 
 import (
     "os"
-    // "fmt"
     "time"
     "bytes"
     "io/ioutil"
@@ -13,6 +12,7 @@ import (
     "github.com/ghodss/yaml"
 
     auditv1 "k8s.io/apiserver/pkg/apis/audit/v1"
+    "k8s.io/klog/v2"
     billy "github.com/go-git/go-billy/v5"
 )
 
@@ -33,10 +33,12 @@ var resourceMap = map[string]string{
 func AddAndCommit(r *git.Repository, username string, email string, message string) (error) {
     w, err := r.Worktree()
     if err != nil {
+        klog.ErrorS(err, "unable to get git worktree from repository")
         return err
     }
     _, err = w.Add(".")
     if err != nil {
+        klog.ErrorS(err, "unable to add git change to worktree")
         return err
     }
     _, err = w.Commit(message, &git.CommitOptions{
@@ -47,6 +49,7 @@ func AddAndCommit(r *git.Repository, username string, email string, message stri
         },
     })
     if err != nil {
+        klog.ErrorS(err, "unable to commit git change to worktree")
         return err
     }
     return nil
@@ -62,57 +65,72 @@ func GetFileName(event auditv1.Event) (string) {
 
 func ModifyFile(dir string, event auditv1.Event) (error) {
     y, err := yaml.JSONToYAML(event.ResponseObject.Raw)
-    if err!=nil {
+    if err != nil {
+        klog.ErrorS(err, "unable to convert event ResponseObject from JSON to YAML format")
         return err
     }
-
     path := GetRepoPath(dir, event)
     if _, err := os.Stat(path); os.IsNotExist(err) {
         os.Mkdir(path, 0700)
     }
     path += GetFileName(event)
-
-    err = ioutil.WriteFile(path, y, 0644)
-    return err
+    if err := ioutil.WriteFile(path, y, 0644); err != nil {
+        klog.ErrorS(err, "unable to write/update file in repository")
+        return err
+    }
+    return nil
 }
 
 func ModifyFileInMem(dir string, fs billy.Filesystem, event auditv1.Event) (error) {
     y, err := yaml.JSONToYAML(event.ResponseObject.Raw)
     if err != nil {
+        klog.ErrorS(err, "unable to convert event ResponseObject from JSON to YAML format")
         return err
     }
     path := GetRepoPath(dir, event)+GetFileName(event)
     newfile, err := fs.Create(path)
     if err != nil {
+        klog.ErrorS(err, "unable to create file at: ", "path", path)
         return err
     }
     newfile.Write(y)
     newfile.Close()
-    return err
+    return nil
 }
 
 func EventToDelete(dir string, event auditv1.Event) (error) {
-    err := os.Remove(GetRepoPath(dir, event)+GetFileName(event))
-    return err
+    path := GetRepoPath(dir, event) + GetFileName(event)
+    if err := os.Remove(path); err != nil {
+        klog.ErrorS(err, "unable to remove file at: ", "path", path)
+        return err
+    }
+    return nil
 }
 
 func EventToDeleteInMem(dir string, fs billy.Filesystem, event auditv1.Event) (error) {
-    err := fs.Remove(GetRepoPath(dir, event)+GetFileName(event))
-    return err
+    path := GetRepoPath(dir, event) + GetFileName(event)
+    if err := fs.Remove(path); err != nil {
+        klog.ErrorS(err, "unable to remove file at: ", "path", path)
+        return err
+    }
+    return nil
 }
 
 func HandleEventList(dir string, jsonstring []byte) (error) {
     eventList := auditv1.EventList{}
     err := json.Unmarshal(jsonstring, &eventList)
     if err != nil {
+        klog.ErrorS(err, "unable to unmarshal json into event list struct")
         return err
     }
     for _,event := range eventList.Items {
         if event.Stage != "ResponseComplete" || event.ResponseStatus.Status == "Failure" {
+            klog.V(4).InfoS("Audit event skipped (audit Stage isn't ResponseComplete or audit has ResponseStatus failure)")
             continue
         }
         r, err := git.PlainOpen(dir)
         if err != nil {
+            klog.ErrorS(err, "unable to open repository")
             return err
         }
         user := event.User.Username
@@ -120,28 +138,36 @@ func HandleEventList(dir string, jsonstring []byte) (error) {
         message := resourceMap[event.ObjectRef.Resource+event.ObjectRef.APIGroup]+event.ObjectRef.Name
         switch verb := event.Verb; verb {
         case "create":
-            err = ModifyFile(dir, event)
-            if err != nil {
+            if err := ModifyFile(dir, event); err != nil {
+                klog.ErrorS(err, "unable to create new resource")
+                return err                
+            }
+            if err := AddAndCommit(r, user, email, "Created "+message); err != nil {
+                klog.ErrorS(err, "unable to add/commit change")
                 return err
             }
-            AddAndCommit(r, user, email, "Created "+message)
         case "patch":
-            err = ModifyFile(dir, event)
-            if err != nil {
+            if err := ModifyFile(dir, event); err != nil {
+                klog.ErrorS(err, "unable to update resource")
                 return err
             }
-            AddAndCommit(r, user, email, "Updated "+message)
+            if err := AddAndCommit(r, user, email, "Updated "+message); err != nil {
+                klog.ErrorS(err, "unable to add/commit change")
+                return err  
+            }
         case "delete":
-            err = EventToDelete(dir, event)
-            if err != nil {
+            if err := EventToDelete(dir, event); err != nil {
+                klog.ErrorS(err, "unable to delete resource")
                 return err
             }
-            AddAndCommit(r, user, email, "Deleted "+message)
+            if err := AddAndCommit(r, user, email, "Deleted "+message); err != nil {
+                klog.ErrorS(err, "unable to add/commit change")
+                return err  
+            }
         default:
             continue
         }
     }
-
     return nil
 }
 
@@ -151,6 +177,7 @@ func HandleEventListInMem(dir string, r *git.Repository, fs billy.Filesystem, js
     jsonstring = bytes.TrimPrefix(jsonstring, []byte("\xef\xbb\xbf"))
     err := json.Unmarshal(jsonstring, &eventList)
     if err != nil {
+        klog.ErrorS(err, "unable to open repository")
         return err
     }
 
@@ -163,23 +190,32 @@ func HandleEventListInMem(dir string, r *git.Repository, fs billy.Filesystem, js
         message := resourceMap[event.ObjectRef.Resource+event.ObjectRef.APIGroup]+event.ObjectRef.Name
         switch verb := event.Verb; verb {
         case "create":
-            err = ModifyFileInMem(dir, fs, event)
-            if err != nil {
+            if err := ModifyFileInMem(dir, fs, event); err != nil {
+                klog.ErrorS(err, "unable to create new resource")
+                return err                
+            }
+            if err := AddAndCommit(r, user, email, "Created "+message); err != nil {
+                klog.ErrorS(err, "unable to add/commit change")
                 return err
             }
-            AddAndCommit(r, user, email, "Created "+message)
         case "patch":
-            err = ModifyFileInMem(dir, fs, event)
-            if err != nil {
+            if err = ModifyFileInMem(dir, fs, event); err != nil {
+                klog.ErrorS(err, "unable to update resource")
                 return err
             }
-            AddAndCommit(r, user, email, "Updated "+message)
+            if err := AddAndCommit(r, user, email, "Updated "+message); err != nil {
+                klog.ErrorS(err, "unable to add/commit change")
+                return err  
+            }
         case "delete":
-            err = EventToDeleteInMem(dir, fs, event)
-            if err != nil {
+            if err = EventToDeleteInMem(dir, fs, event); err != nil {
+                klog.ErrorS(err, "unable to delete resource")
                 return err
             }
-            AddAndCommit(r, user, email, "Deleted "+message)
+            if err := AddAndCommit(r, user, email, "Deleted "+message); err != nil {
+                klog.ErrorS(err, "unable to add/commit change")
+                return err  
+            }
         default:
             continue
         }
