@@ -2,6 +2,7 @@ package init
 
 import (
     "os"
+    // "os/exec"
 	"io/ioutil"
 
 	. "antrea-audit/git-manager/gitops"
