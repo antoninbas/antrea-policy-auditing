@@ -3,6 +3,7 @@ package init
 import (
     "fmt"
     "os"
+    // "os/exec"
 	"io/ioutil"
 
 	. "antrea-audit/git-manager/gitops"
@@ -35,10 +36,19 @@ func createRepo(k *Kubernetes, dir *string) (*git.Repository, error) {
         }
         *dir = path
     }
-	*dir += "/network-policy-repository"
+    //cmd := exec.Command("sudo", "chmod", "a+w", "./")
+	//err = cmd.Run()
+    // if err != nil {
+        //return nil, err
+    //}
+    *dir += "/network-policy-repository"
     r, err := git.PlainInit(*dir, false)
     if err == git.ErrRepositoryAlreadyExists {
-		return nil, errors.WithMessagef(err, "Skipping initialization")
+		r, err = git.PlainOpen(*dir)
+        if err != nil {
+            return nil, errors.WithMessagef(err, "repo exists and cannot open")
+        }
+        return r, nil
 	} else if err != nil {
 		return nil, errors.WithMessagef(err, "could not initialize git repo")
 	}
@@ -48,7 +58,7 @@ func createRepo(k *Kubernetes, dir *string) (*git.Repository, error) {
 func SetupRepoInMem(k *Kubernetes, storer *memory.Storage, fs billy.Filesystem) error {
 	r, err := git.Init(storer, fs)
     if err == git.ErrRepositoryAlreadyExists {
-		return errors.WithMessagef(err, "Skipping initialization")
+		return nil 
 	} else if err != nil {
 		return errors.WithMessagef(err, "could not initialize git repo")
 	}
