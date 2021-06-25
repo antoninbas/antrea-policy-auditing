@@ -2,6 +2,7 @@ package init
 
 import (
     "os"
+    // "os/exec"
 	"io/ioutil"
 
 	. "antrea-audit/git-manager/gitops"
@@ -17,21 +18,26 @@ import (
 
 func SetupRepo(k *Kubernetes, dir *string) error {
 	r, err := createRepo(k, dir)
-	if err == git.ErrRepositoryAlreadyExists {
-		klog.V(2).InfoS("network policy respository already exists - skipping initialization")
-		return nil
-	} else if err != nil {
+	if err != nil {
 		klog.ErrorS(err, "unable to create network policy repository")
 		return err
 	}
 	if err := addResources(k, *dir); err != nil {
 		klog.ErrorS(err, "unable to add resource yamls to repository")
 		return err
+<<<<<<< HEAD
 	}
 	if err := AddAndCommit(r, "audit-init", "system@audit.antrea.io", "Initial commit of existing policies"); err != nil {
 		klog.ErrorS(err, "unable to add and commit existing resources to repository")
 		return err
 	}
+=======
+	}
+	if err := AddAndCommit(r, "audit-init", "system@audit.antrea.io", "Initial commit of existing policies"); err != nil {
+		klog.ErrorS(err, "unable to add and commit existing resources to repository")
+		return err
+	}
+>>>>>>> 79e6b74 (temp)
 	klog.V(2).Infof("Repository successfully initialized at %s", *dir)
 	return nil
 }
@@ -48,6 +54,10 @@ func createRepo(k *Kubernetes, dir *string) (*git.Repository, error) {
     *dir += "/network-policy-repository"
     r, err := git.PlainInit(*dir, false)
     if err == git.ErrRepositoryAlreadyExists {
+<<<<<<< HEAD
+=======
+		klog.V(2).InfoS("network policy respository already exists - skipping initialization")
+>>>>>>> 79e6b74 (temp)
         return nil, err
 	} else if err != nil {
 		klog.ErrorS(err, "unable to initialize git repo")
