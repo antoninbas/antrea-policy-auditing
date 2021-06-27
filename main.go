@@ -10,7 +10,7 @@ import (
 )
 
 func processArgs(portFlag *string, dirFlag *string) {
-    flag.StringVar(portFlag, "p", "8080", "specifies port that audit webhook listens on, default 8080")
+    flag.StringVar(portFlag, "p", "8080", "specifies port that audit webhook listens on")
     flag.StringVar(dirFlag, "d", "", "path to which network policy repository is created, default current working directory")
     flag.Parse()
 }
@@ -20,6 +20,7 @@ func main() {
         portFlag string
         dirFlag string
     )
+    klog.InitFlags(nil)
     processArgs(&portFlag, &dirFlag)
     k8s, err := NewKubernetes()
     if err != nil {
