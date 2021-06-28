@@ -1,0 +1,75 @@
+apiVersion: crd.antrea.io/v1alpha1
+kind: NetworkPolicy
+metadata:
+  name: deny-client2
+  namespace: default
+spec:
+    priority: 15
+    tier: securityops
+    appliedTo:
+      - podSelector:
+          matchLabels:
+            app: nginx
+    ingress:
+      - action: Drop
+        from:
+          - podSelector:
+              matchLabels:
+                app: client2
+        ports:
+          - protocol: TCP
+        name: DropClient2
+        enableLogging: true
+---
+apiVersion: crd.antrea.io/v1alpha1
+kind: ClusterNetworkPolicy
+metadata:
+  name: test-acnp
+spec:
+    priority: 5
+    tier: securityops
+    appliedTo:
+      - podSelector:
+          matchLabels:
+            role: db
+      - namespaceSelector:
+          matchLabels:
+            env: prod
+    ingress:
+      - action: Allow
+        from:
+          - podSelector:
+              matchLabels:
+                role: frontend
+          - podSelector:
+              matchLabels:
+                role: nondb
+            namespaceSelector:
+              matchLabels:
+                role: db
+        ports:
+          - protocol: TCP
+            port: 8080
+            endPort: 9000
+          - protocol: TCP
+            port: 6379  
+        name: AllowFromFrontend
+        enableLogging: false
+    egress:
+      - action: Drop
+        to:
+          - ipBlock:
+              cidr: 10.0.10.0/24
+        ports:
+          - protocol: TCP
+            port: 5978
+        name: DropToThirdParty
+        enableLogging: true
+---
+apiVersion: crd.antrea.io/v1alpha1
+kind: Tier
+metadata:
+  name: mynewtier
+spec:
+  priority: 15
+  description: "my custom tier"
