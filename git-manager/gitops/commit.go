@@ -55,8 +55,12 @@ func AddAndCommit(r *git.Repository, username string, email string, message stri
     return nil
 }
 
-func GetRepoPath(dir string, event auditv1.Event) (string) {
+func GetAbsRepoPath(dir string, event auditv1.Event) (string) {
     return dir+"/"+dirMap[event.ObjectRef.Resource+event.ObjectRef.APIGroup]+"/"+event.ObjectRef.Namespace+"/"
+}
+
+func GetRelRepoPath(dir string, event auditv1.Event) (string) {
+    return dirMap[event.ObjectRef.Resource+event.ObjectRef.APIGroup]+"/"+event.ObjectRef.Namespace+"/"
 }
 
 func GetFileName(event auditv1.Event) (string) {
@@ -69,7 +73,7 @@ func ModifyFile(dir string, event auditv1.Event) (error) {
         klog.ErrorS(err, "unable to convert event ResponseObject from JSON to YAML format")
         return err
     }
-    path := GetRepoPath(dir, event)
+    path := GetAbsRepoPath(dir, event)
     if _, err := os.Stat(path); os.IsNotExist(err) {
         os.Mkdir(path, 0700)
     }
@@ -87,7 +91,7 @@ func ModifyFileInMem(dir string, fs billy.Filesystem, event auditv1.Event) (erro
         klog.ErrorS(err, "unable to convert event ResponseObject from JSON to YAML format")
         return err
     }
-    path := GetRepoPath(dir, event)+GetFileName(event)
+    path := GetAbsRepoPath(dir, event)+GetFileName(event)
     newfile, err := fs.Create(path)
     if err != nil {
         klog.ErrorS(err, "unable to create file at: ", "path", path)
@@ -98,18 +102,15 @@ func ModifyFileInMem(dir string, fs billy.Filesystem, event auditv1.Event) (erro
     return nil
 }
 
-func EventToDelete(dir string, event auditv1.Event) (error) {
-    path := GetRepoPath(dir, event) + GetFileName(event)
-    if err := os.Remove(path); err != nil {
-        klog.ErrorS(err, "unable to remove file at: ", "path", path)
+func DeleteFile(r *git.Repository, dir string, event auditv1.Event) (error) {
+    w, err := r.Worktree()
+    if err != nil {
+        klog.ErrorS(err, "unable to get git worktree from repository")
         return err
     }
-    return nil
-}
-
-func EventToDeleteInMem(dir string, fs billy.Filesystem, event auditv1.Event) (error) {
-    path := GetRepoPath(dir, event) + GetFileName(event)
-    if err := fs.Remove(path); err != nil {
+    path := GetRelRepoPath(dir, event) + GetFileName(event)
+    _, err = w.Remove(path)
+    if err != nil {
         klog.ErrorS(err, "unable to remove file at: ", "path", path)
         return err
     }
@@ -135,7 +136,7 @@ func HandleEventList(dir string, jsonstring []byte) (error) {
         }
         user := event.User.Username
         email := event.User.Username+"+"+event.User.UID+"@audit.antrea.io"
-        message := resourceMap[event.ObjectRef.Resource+event.ObjectRef.APIGroup]+event.ObjectRef.Name
+        message := resourceMap[event.ObjectRef.Resource+event.ObjectRef.APIGroup]+event.ObjectRef.Namespace+"/"+event.ObjectRef.Name
         switch verb := event.Verb; verb {
         case "create":
             if err := ModifyFile(dir, event); err != nil {
@@ -156,7 +157,7 @@ func HandleEventList(dir string, jsonstring []byte) (error) {
                 return err  
             }
         case "delete":
-            if err := EventToDelete(dir, event); err != nil {
+            if err := DeleteFile(r, dir, event); err != nil {
                 klog.ErrorS(err, "unable to delete resource")
                 return err
             }
@@ -167,10 +168,10 @@ func HandleEventList(dir string, jsonstring []byte) (error) {
         default:
             continue
         }
+        klog.V(2).Infof("Successfully updated resource: %s", message)
     }
     return nil
 }
-
 
 func HandleEventListInMem(dir string, r *git.Repository, fs billy.Filesystem, jsonstring []byte) (error) {
     eventList := auditv1.EventList{}
@@ -208,7 +209,7 @@ func HandleEventListInMem(dir string, r *git.Repository, fs billy.Filesystem, js
                 return err  
             }
         case "delete":
-            if err = EventToDeleteInMem(dir, fs, event); err != nil {
+            if err := DeleteFile(r, dir, event); err != nil {
                 klog.ErrorS(err, "unable to delete resource")
                 return err
             }

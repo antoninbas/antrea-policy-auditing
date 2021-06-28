@@ -13,7 +13,7 @@ import (
     memfs "github.com/go-git/go-billy/v5/memfs"
 )
 
-var directory string
+var directory = ""
 
 func TestHandleEventList(t *testing.T) {
     storer := memory.NewStorage()
@@ -45,10 +45,9 @@ func TestHandleEventList(t *testing.T) {
 }
 
 func SetupMemRepo(storer *memory.Storage, fs billy.Filesystem) (error) {
-    fs.MkdirAll(directory + "/network-policy-repository/", 0700)
     _, err := git.Init(storer, fs)
-    fs.MkdirAll(directory + "/network-policy-repository/k8s-policies", 0700)
-    fs.MkdirAll(directory + "/network-policy-repository/antrea-policies", 0700)
-    fs.MkdirAll(directory + "/network-policy-repository/antrea-cluster-policies", 0700)
+    fs.MkdirAll("k8s-policies", 0700)
+    fs.MkdirAll("antrea-policies", 0700)
+    fs.MkdirAll("antrea-cluster-policies", 0700)
     return err
 }
