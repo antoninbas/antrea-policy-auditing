@@ -11,7 +11,6 @@ import (
 
     auditv1 "k8s.io/apiserver/pkg/apis/audit/v1"
     "k8s.io/klog/v2"
-    billy "github.com/go-git/go-billy/v5"
 )
 
 func AddAndCommit(r *git.Repository, username string, email string, message string) (error) {
@@ -54,23 +53,6 @@ func modifyFile(dir string, event auditv1.Event) (error) {
         klog.ErrorS(err, "unable to write/update file in repository")
         return err
     }
-    return nil
-}
-
-func modifyFileInMem(dir string, fs billy.Filesystem, event auditv1.Event) (error) {
-    y, err := yaml.JSONToYAML(event.ResponseObject.Raw)
-    if err != nil {
-        klog.ErrorS(err, "unable to convert event ResponseObject from JSON to YAML format")
-        return err
-    }
-    path := getAbsRepoPath(dir, event) + getFileName(event)
-    newfile, err := fs.Create(path)
-    if err != nil {
-        klog.ErrorS(err, "unable to create file at: ", "path", path)
-        return err
-    }
-    newfile.Write(y)
-    newfile.Close()
     return nil
 }
 
