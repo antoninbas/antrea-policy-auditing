@@ -1,7 +1,6 @@
 package test
 
 import (
-	"fmt"
     "testing"
 
 	"github.com/pkg/errors"
@@ -430,7 +429,6 @@ func runSetupTest(t *testing.T, k8s *Kubernetes, expPaths []string, expYamls []s
 		t.Errorf("Error (TestSetupRepo): unable to set up repo")
 	}
 	for i, path := range expPaths {
-		fmt.Println(path)
 		file, err := fs.Open(path)
 		if err != nil {
 			t.Errorf("Error (TestSetupRepo): unable to open file")
