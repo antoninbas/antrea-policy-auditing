@@ -41,3 +41,12 @@ func getRelRepoPath(event auditv1.Event) (string) {
 func getFileName(event auditv1.Event) (string) {
     return event.ObjectRef.Name+".yaml"
 }
+
+func StringInSlice(a string, list []string) bool {
+    for _, b := range list {
+        if b == a {
+            return true
+        }
+    }
+    return false
+}
