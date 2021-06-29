@@ -73,11 +73,7 @@ func ModifyFile(dir string, event auditv1.Event) (error) {
         klog.ErrorS(err, "unable to convert event ResponseObject from JSON to YAML format")
         return err
     }
-<<<<<<< HEAD
     path := GetAbsRepoPath(dir, event)
-=======
-    path := GetRepoPath(dir, event)
->>>>>>> 79e6b74 (temp)
     if _, err := os.Stat(path); os.IsNotExist(err) {
         os.Mkdir(path, 0700)
     }
@@ -104,7 +100,6 @@ func ModifyFileInMem(dir string, fs billy.Filesystem, event auditv1.Event) (erro
     newfile.Write(y)
     newfile.Close()
     return nil
-<<<<<<< HEAD
 }
 
 func DeleteFile(r *git.Repository, dir string, event auditv1.Event) (error) {
@@ -116,22 +111,6 @@ func DeleteFile(r *git.Repository, dir string, event auditv1.Event) (error) {
     path := GetRelRepoPath(dir, event) + GetFileName(event)
     _, err = w.Remove(path)
     if err != nil {
-=======
-}
-
-func EventToDelete(dir string, event auditv1.Event) (error) {
-    path := GetRepoPath(dir, event) + GetFileName(event)
-    if err := os.Remove(path); err != nil {
-        klog.ErrorS(err, "unable to remove file at: ", "path", path)
-        return err
-    }
-    return nil
-}
-
-func EventToDeleteInMem(dir string, fs billy.Filesystem, event auditv1.Event) (error) {
-    path := GetRepoPath(dir, event) + GetFileName(event)
-    if err := fs.Remove(path); err != nil {
->>>>>>> 79e6b74 (temp)
         klog.ErrorS(err, "unable to remove file at: ", "path", path)
         return err
     }
@@ -162,7 +141,7 @@ func HandleEventList(dir string, jsonstring []byte) (error) {
         case "create":
             if err := ModifyFile(dir, event); err != nil {
                 klog.ErrorS(err, "unable to create new resource")
-                return err                
+                return err
             }
             if err := AddAndCommit(r, user, email, "Created "+message); err != nil {
                 klog.ErrorS(err, "unable to add/commit change")
@@ -175,20 +154,16 @@ func HandleEventList(dir string, jsonstring []byte) (error) {
             }
             if err := AddAndCommit(r, user, email, "Updated "+message); err != nil {
                 klog.ErrorS(err, "unable to add/commit change")
-                return err  
+                return err
             }
         case "delete":
-<<<<<<< HEAD
             if err := DeleteFile(r, dir, event); err != nil {
-=======
-            if err := EventToDelete(dir, event); err != nil {
->>>>>>> 79e6b74 (temp)
                 klog.ErrorS(err, "unable to delete resource")
                 return err
             }
             if err := AddAndCommit(r, user, email, "Deleted "+message); err != nil {
                 klog.ErrorS(err, "unable to add/commit change")
-                return err  
+                return err
             }
         default:
             continue
@@ -218,7 +193,7 @@ func HandleEventListInMem(dir string, r *git.Repository, fs billy.Filesystem, js
         case "create":
             if err := ModifyFileInMem(dir, fs, event); err != nil {
                 klog.ErrorS(err, "unable to create new resource")
-                return err                
+                return err
             }
             if err := AddAndCommit(r, user, email, "Created "+message); err != nil {
                 klog.ErrorS(err, "unable to add/commit change")
@@ -231,20 +206,16 @@ func HandleEventListInMem(dir string, r *git.Repository, fs billy.Filesystem, js
             }
             if err := AddAndCommit(r, user, email, "Updated "+message); err != nil {
                 klog.ErrorS(err, "unable to add/commit change")
-                return err  
+                return err
             }
         case "delete":
-<<<<<<< HEAD
             if err := DeleteFile(r, dir, event); err != nil {
-=======
-            if err = EventToDeleteInMem(dir, fs, event); err != nil {
->>>>>>> 79e6b74 (temp)
                 klog.ErrorS(err, "unable to delete resource")
                 return err
             }
             if err := AddAndCommit(r, user, email, "Deleted "+message); err != nil {
                 klog.ErrorS(err, "unable to add/commit change")
-                return err  
+                return err
             }
         default:
             continue
