@@ -16,7 +16,7 @@ func ReceiveEvents(dir string, port string) error {
         if err != nil {
             klog.ErrorS(err, "unable to read audit body")
         }
-        klog.V(3).Infof("Audit received: %s", string(body))
+        klog.V(2).Infof("Audit received: %s", string(body))
         if err := gitops.HandleEventList(dir, body); err != nil {
             klog.ErrorS(err, "unable to process audit event list")
         }
