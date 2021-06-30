@@ -15,7 +15,10 @@ import (
 
 func SetupRepo(k *Kubernetes, dir *string) error {
 	r, err := createRepo(k, dir)
-	if err != nil {
+	if err == git.ErrRepositoryAlreadyExists {
+		klog.V(2).InfoS("network policy respository already exists - skipping initialization")
+		return nil
+	} else if err != nil {
 		klog.ErrorS(err, "unable to create network policy repository")
 		return err
 	}
@@ -43,7 +46,6 @@ func createRepo(k *Kubernetes, dir *string) (*git.Repository, error) {
     *dir += "/network-policy-repository"
     r, err := git.PlainInit(*dir, false)
     if err == git.ErrRepositoryAlreadyExists {
-		klog.V(2).InfoS("network policy respository already exists - skipping initialization")
         return nil, err
 	} else if err != nil {
 		klog.ErrorS(err, "unable to initialize git repo")

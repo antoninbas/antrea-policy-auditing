@@ -47,7 +47,7 @@ spec:
           claimName: audit-pv-claim
       containers:
       - name: audit
-        image: stanleywbwong/antrea-audit-old
+        image: stanleywbwong/antrea-audit
         ports:
         - containerPort: 8080
         volumeMounts:
