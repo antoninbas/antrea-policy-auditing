@@ -1,8 +1,8 @@
 package init
 
 import (
-    "os"
 	"io/ioutil"
+	"os"
 
 	. "antrea-audit/git-manager/gitops"
 
@@ -10,7 +10,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/ghodss/yaml"
-    "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5"
 )
 
 func SetupRepo(k *Kubernetes, dir *string) error {
@@ -35,18 +35,18 @@ func SetupRepo(k *Kubernetes, dir *string) error {
 }
 
 func createRepo(k *Kubernetes, dir *string) (*git.Repository, error) {
-    if *dir == "" {
-        path, err := os.Getwd()
-        if err != nil {
+	if *dir == "" {
+		path, err := os.Getwd()
+		if err != nil {
 			klog.ErrorS(err, "unable to retrieve the current working directory")
 			return nil, err
-        }
-        *dir = path
-    }
-    *dir += "/network-policy-repository"
-    r, err := git.PlainInit(*dir, false)
-    if err == git.ErrRepositoryAlreadyExists {
-        return nil, err
+		}
+		*dir = path
+	}
+	*dir += "/network-policy-repository"
+	r, err := git.PlainInit(*dir, false)
+	if err == git.ErrRepositoryAlreadyExists {
+		return nil, err
 	} else if err != nil {
 		klog.ErrorS(err, "unable to initialize git repo")
 		return nil, err
@@ -55,10 +55,10 @@ func createRepo(k *Kubernetes, dir *string) (*git.Repository, error) {
 }
 
 func addResources(k *Kubernetes, dir string) error {
-    os.Mkdir(dir + "/k8s-policies", 0700)
-    os.Mkdir(dir + "/antrea-policies", 0700)
-    os.Mkdir(dir + "/antrea-cluster-policies", 0700)
-	os.Mkdir(dir + "/antrea-tiers", 0700)
+	os.Mkdir(dir+"/k8s-policies", 0700)
+	os.Mkdir(dir+"/antrea-policies", 0700)
+	os.Mkdir(dir+"/antrea-cluster-policies", 0700)
+	os.Mkdir(dir+"/antrea-tiers", 0700)
 	if err := addK8sPolicies(k, dir); err != nil {
 		klog.ErrorS(err, "unable to add K8s network policies to repository")
 		return err
@@ -86,12 +86,12 @@ func addK8sPolicies(k *Kubernetes, dir string) error {
 	var namespaces []string
 	for _, np := range policies.Items {
 		np.TypeMeta = metav1.TypeMeta{
-			Kind: "NetworkPolicy",
+			Kind:       "NetworkPolicy",
 			APIVersion: "networking.k8s.io/v1",
 		}
 		if !StringInSlice(np.Namespace, namespaces) {
 			namespaces = append(namespaces, np.Namespace)
-			os.Mkdir(dir + "/k8s-policies/" + np.Namespace, 0700)
+			os.Mkdir(dir+"/k8s-policies/"+np.Namespace, 0700)
 		}
 		path := dir + "/k8s-policies/" + np.Namespace + "/" + np.Name + ".yaml"
 		klog.V(2).Infof("Added K8s policy at network-policy-repository/k8s-policies/" + np.Namespace + "/" + np.Name + ".yaml")
@@ -117,12 +117,12 @@ func addAntreaPolicies(k *Kubernetes, dir string) error {
 	var namespaces []string
 	for _, np := range policies.Items {
 		np.TypeMeta = metav1.TypeMeta{
-			Kind: "NetworkPolicy",
+			Kind:       "NetworkPolicy",
 			APIVersion: "crd.antrea.io/v1alpha1",
 		}
 		if !StringInSlice(np.Namespace, namespaces) {
 			namespaces = append(namespaces, np.Namespace)
-			os.Mkdir(dir + "/antrea-policies/" + np.Namespace, 0700)
+			os.Mkdir(dir+"/antrea-policies/"+np.Namespace, 0700)
 		}
 		path := dir + "/antrea-policies/" + np.Namespace + "/" + np.Name + ".yaml"
 		klog.V(2).Infof("Added Antrea policy at network-policy-repository/antrea-policies/" + np.Namespace + "/" + np.Name + ".yaml")
@@ -147,7 +147,7 @@ func addAntreaClusterPolicies(k *Kubernetes, dir string) error {
 	}
 	for _, np := range policies.Items {
 		np.TypeMeta = metav1.TypeMeta{
-			Kind: "ClusterNetworkPolicy",
+			Kind:       "ClusterNetworkPolicy",
 			APIVersion: "crd.antrea.io/v1alpha1",
 		}
 		path := dir + "/antrea-cluster-policies/" + np.Name + ".yaml"
@@ -173,7 +173,7 @@ func addAntreaTiers(k *Kubernetes, dir string) error {
 	}
 	for _, tier := range tiers.Items {
 		tier.TypeMeta = metav1.TypeMeta{
-			Kind: "Tier",
+			Kind:       "Tier",
 			APIVersion: "crd.antrea.io/v1alpha1",
 		}
 		path := dir + "/antrea-tiers/" + tier.Name + ".yaml"
