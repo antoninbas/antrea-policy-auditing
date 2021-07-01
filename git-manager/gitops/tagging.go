@@ -2,7 +2,6 @@ package gitops
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
@@ -11,29 +10,42 @@ import (
 	"k8s.io/klog/v2"
 )
 
-func TagCommit(r *git.Repository, commit_sha string, tag string) error {
+func TagCommit(r *git.Repository, commit_sha string, tag string, tagger *object.Signature) error {
 	hash := plumbing.NewHash(commit_sha)
 	_, err := r.CommitObject(hash)
 	if err != nil {
-		klog.ErrorS(err, "could not get commit object")
+		klog.ErrorS(err, "Unable to get commit object")
 		return err
 	}
-	_, err = setTag(r, hash, tag, &object.Signature{
-		Name:  "stan",
-		Email: "swong394@gmail.com",
-		When:  time.Now()})
-	if err != nil {
-		klog.ErrorS(err, "create tag error")
+	if err = setTag(r, hash, tag, tagger); err != nil {
+		klog.ErrorS(err, "Unable to create tag")
 		return err
 	}
 	return nil
 }
 
+func setTag(r *git.Repository, commit_sha plumbing.Hash, tag string, tagger *object.Signature) error {
+	if tagExists(r, tag) {
+		klog.V(2).Infof("Unable to create tag: %s already exists", tag)
+		return nil
+	}
+	_, err := r.CreateTag(tag, commit_sha, &git.CreateTagOptions{
+		Tagger:  tagger,
+		Message: tag,
+	})
+	if err != nil {
+		klog.ErrorS(err, "Error creating tag")
+		return err
+	}
+	klog.V(2).Infof("Tag created: %s", tag)
+	return nil
+}
+
 func tagExists(r *git.Repository, tag string) bool {
-	tagFoundErr := "tag was found"
+	tagFoundErr := "Tag already exists"
 	tags, err := r.TagObjects()
 	if err != nil {
-		klog.Errorf("get tags error: %s", err)
+		klog.ErrorS(err, "Error while getting tags")
 		return false
 	}
 	res := false
@@ -45,25 +57,8 @@ func tagExists(r *git.Repository, tag string) bool {
 		return nil
 	})
 	if err != nil && err.Error() != tagFoundErr {
-		klog.Errorf("iterate tags error: %s", err)
+		klog.ErrorS(err, "Error while iterating through tags")
 		return false
 	}
 	return res
-}
-
-func setTag(r *git.Repository, commit_sha plumbing.Hash, tag string, tagger *object.Signature) (bool, error) {
-	if tagExists(r, tag) {
-		klog.Infof("tag %s already exists", tag)
-		return false, nil
-	}
-	_, err := r.CreateTag(tag, commit_sha, &git.CreateTagOptions{
-		Tagger:  tagger,
-		Message: tag,
-	})
-	if err != nil {
-		klog.Errorf("create tag error: %s", err)
-		return false, err
-	}
-
-	return true, nil
 }
