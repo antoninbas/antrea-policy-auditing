@@ -6,15 +6,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 
-	billy "github.com/go-git/go-billy/v5"
-	"github.com/go-git/go-git/v5/storage/memory"
 	"github.com/ghodss/yaml"
-    "github.com/go-git/go-git/v5"
+	billy "github.com/go-git/go-billy/v5"
+	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/storage/memory"
 )
 
 func SetupRepoInMem(k *Kubernetes, storer *memory.Storage, fs billy.Filesystem) error {
 	r, err := git.Init(storer, fs)
-    if err == git.ErrRepositoryAlreadyExists {
+	if err == git.ErrRepositoryAlreadyExists {
 		klog.InfoS("network policy respository already exists - skipping initialization")
 		return err
 	} else if err != nil {
@@ -27,7 +27,7 @@ func SetupRepoInMem(k *Kubernetes, storer *memory.Storage, fs billy.Filesystem) 
 	}
 	if err := AddAndCommit(r, "audit-init", "system@audit.antrea.io", "initial commit of existing policies"); err != nil {
 		klog.ErrorS(err, "unable to add and commit existing policies to repository")
-		return err		
+		return err
 	}
 	klog.V(2).Infof("Repository successfully initialized")
 	return nil
@@ -65,12 +65,12 @@ func addK8sPoliciesInMem(k *Kubernetes, fs billy.Filesystem) error {
 	var namespaces []string
 	for _, np := range policies.Items {
 		np.TypeMeta = metav1.TypeMeta{
-			Kind: "NetworkPolicy",
+			Kind:       "NetworkPolicy",
 			APIVersion: "networking.k8s.io/v1",
 		}
 		if !StringInSlice(np.Namespace, namespaces) {
 			namespaces = append(namespaces, np.Namespace)
-			fs.MkdirAll("k8s-policies/" + np.Namespace, 0700)
+			fs.MkdirAll("k8s-policies/"+np.Namespace, 0700)
 		}
 		path := "k8s-policies/" + np.Namespace + "/" + np.Name + ".yaml"
 		klog.V(2).Infof("Added K8s policy at k8s-policies/" + np.Namespace + "/" + np.Name + ".yaml")
@@ -98,12 +98,12 @@ func addAntreaPoliciesInMem(k *Kubernetes, fs billy.Filesystem) error {
 	var namespaces []string
 	for _, np := range policies.Items {
 		np.TypeMeta = metav1.TypeMeta{
-			Kind: "NetworkPolicy",
+			Kind:       "NetworkPolicy",
 			APIVersion: "crd.antrea.io/v1alpha1",
 		}
 		if !StringInSlice(np.Namespace, namespaces) {
 			namespaces = append(namespaces, np.Namespace)
-			fs.MkdirAll("antrea-policies/" + np.Namespace, 0700)
+			fs.MkdirAll("antrea-policies/"+np.Namespace, 0700)
 		}
 		path := "antrea-policies/" + np.Namespace + "/" + np.Name + ".yaml"
 		klog.V(2).Infof("Added Antrea policy at antrea-policies/" + np.Namespace + "/" + np.Name + ".yaml")
@@ -130,7 +130,7 @@ func addAntreaClusterPoliciesInMem(k *Kubernetes, fs billy.Filesystem) error {
 	}
 	for _, np := range policies.Items {
 		np.TypeMeta = metav1.TypeMeta{
-			Kind: "ClusterNetworkPolicy",
+			Kind:       "ClusterNetworkPolicy",
 			APIVersion: "crd.antrea.io/v1alpha1",
 		}
 		path := "antrea-cluster-policies/" + np.Name + ".yaml"
@@ -158,7 +158,7 @@ func addAntreaTiersInMem(k *Kubernetes, fs billy.Filesystem) error {
 	}
 	for _, tier := range tiers.Items {
 		tier.TypeMeta = metav1.TypeMeta{
-			Kind: "Tier",
+			Kind:       "Tier",
 			APIVersion: "crd.antrea.io/v1alpha1",
 		}
 		path := "antrea-tiers/" + tier.Name + ".yaml"
