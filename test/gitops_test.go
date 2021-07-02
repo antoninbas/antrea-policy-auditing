@@ -81,7 +81,7 @@ func TestTagging(t *testing.T) {
 		t.Errorf("Error (TestTagging): unable to create new tag")
 	}
 	if err := gitops.TagCommit(r, h.Hash().String(), "test-tag-2", testSig); err != nil {
-		t.Errorf("Error (TestTagging): nable to create new tag")
+		t.Errorf("Error (TestTagging): unable to create new tag")
 	}
 	_, err = r.Tag("test-tag")
 	if err != nil {
