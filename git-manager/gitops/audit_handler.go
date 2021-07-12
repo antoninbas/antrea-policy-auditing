@@ -17,8 +17,11 @@ func HandleEventList(dir string, jsonstring []byte) error {
 		return err
 	}
 	for _, event := range eventList.Items {
-		if event.Stage != "ResponseComplete" || event.ResponseStatus.Status == "Failure" {
-			klog.V(4).InfoS("Audit event skipped (audit Stage isn't ResponseComplete or audit has ResponseStatus failure)")
+		// TODO: compute the service account once in init and store in state struct
+		if event.Stage != "ResponseComplete" ||
+			event.ResponseStatus.Status == "Failure" ||
+			event.User.Username == "system:serviceaccount:default:antrea-audit" {
+			klog.V(4).InfoS("Audit event skipped (audit Stage != ResponseComplete, audit ResponseStatus != Success, or audit produced by rollback)")
 			continue
 		}
 		r, err := git.PlainOpen(dir)
@@ -48,6 +51,7 @@ func HandleEventList(dir string, jsonstring []byte) error {
 				klog.ErrorS(err, "unable to add/commit change")
 				return err
 			}
+			klog.V(2).Infof("Successfully updated resource: %s", message)
 		case "delete":
 			if err := deleteFile(r, dir, event); err != nil {
 				klog.ErrorS(err, "unable to delete resource", "resource", message)
@@ -57,10 +61,10 @@ func HandleEventList(dir string, jsonstring []byte) error {
 				klog.ErrorS(err, "unable to add/commit change")
 				return err
 			}
+			klog.V(2).Infof("Successfully deleted resource: %s", message)
 		default:
 			continue
 		}
-		klog.V(2).Infof("Successfully updated resource: %s", message)
 	}
 	return nil
 }

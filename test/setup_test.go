@@ -1,50 +1,51 @@
 package test
 
 import (
-    "testing"
+	"testing"
 
+	"antrea-audit/git-manager/client"
+	. "antrea-audit/git-manager/init"
+
+	crdv1alpha1 "antrea.io/antrea/pkg/apis/crd/v1alpha1"
+	fakeversioned "antrea.io/antrea/pkg/client/clientset/versioned/fake"
+	memfs "github.com/go-git/go-billy/v5/memfs"
+	"github.com/go-git/go-git/v5"
+	memory "github.com/go-git/go-git/v5/storage/memory"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
-	memfs "github.com/go-git/go-billy/v5/memfs"
-	memory "github.com/go-git/go-git/v5/storage/memory"
 	v1 "k8s.io/api/core/v1"
-	. "antrea-audit/git-manager/init"
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"github.com/go-git/go-git/v5"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	fake "k8s.io/client-go/kubernetes/fake"
-	fakeversioned "antrea.io/antrea/pkg/client/clientset/versioned/fake"
-	crdv1alpha1 "antrea.io/antrea/pkg/apis/crd/v1alpha1"
 )
 
 type test_resource struct {
 	inputResource runtime.Object
-	expPath string
-	expYaml string
+	expPath       string
+	expYaml       string
 }
 
 var (
-	selectorA = metav1.LabelSelector{MatchLabels: map[string]string{"foo1": "bar1"}}
-	selectorB = metav1.LabelSelector{MatchLabels: map[string]string{"foo2": "bar2"}}
-	selectorC = metav1.LabelSelector{MatchLabels: map[string]string{"foo3": "bar3"}}
-	p10 = float64(10)
-	int80 = intstr.FromInt(80)
-	int81 = intstr.FromInt(81)
+	selectorA   = metav1.LabelSelector{MatchLabels: map[string]string{"foo1": "bar1"}}
+	selectorB   = metav1.LabelSelector{MatchLabels: map[string]string{"foo2": "bar2"}}
+	selectorC   = metav1.LabelSelector{MatchLabels: map[string]string{"foo3": "bar3"}}
+	p10         = float64(10)
+	int80       = intstr.FromInt(80)
+	int81       = intstr.FromInt(81)
 	allowAction = crdv1alpha1.RuleActionAllow
-	np1 = test_resource{
+	np1         = test_resource{
 		inputResource: &networkingv1.NetworkPolicy{
-				ObjectMeta: metav1.ObjectMeta{Namespace: "nsA", Name: "npA", UID: "uidA"},
-				Spec: networkingv1.NetworkPolicySpec{
-					PodSelector: metav1.LabelSelector{},
-					PolicyTypes: []networkingv1.PolicyType{networkingv1.PolicyTypeIngress},
-					Ingress:     []networkingv1.NetworkPolicyIngressRule{{}},
-				},
+			ObjectMeta: metav1.ObjectMeta{Namespace: "nsA", Name: "npA", UID: "uidA"},
+			Spec: networkingv1.NetworkPolicySpec{
+				PodSelector: metav1.LabelSelector{},
+				PolicyTypes: []networkingv1.PolicyType{networkingv1.PolicyTypeIngress},
+				Ingress:     []networkingv1.NetworkPolicyIngressRule{{}},
+			},
 		},
 		expPath: "/k8s-policies/nsA/npA.yaml",
-		expYaml: 
-`apiVersion: networking.k8s.io/v1
+		expYaml: `apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   creationTimestamp: null
@@ -69,8 +70,7 @@ spec:
 			},
 		},
 		expPath: "/k8s-policies/nsA/npB.yaml",
-		expYaml: 
-`apiVersion: networking.k8s.io/v1
+		expYaml: `apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   creationTimestamp: null
@@ -123,8 +123,7 @@ spec:
 			},
 		},
 		expPath: "/k8s-policies/nsB/npC.yaml",
-		expYaml: 
-`apiVersion: networking.k8s.io/v1
+		expYaml: `apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   creationTimestamp: null
@@ -200,8 +199,7 @@ spec:
 			},
 		},
 		expPath: "/antrea-policies/nsA/npA.yaml",
-		expYaml: 
-`apiVersion: crd.antrea.io/v1alpha1
+		expYaml: `apiVersion: crd.antrea.io/v1alpha1
 kind: NetworkPolicy
 metadata:
   creationTimestamp: null
@@ -292,8 +290,7 @@ status:
 			},
 		},
 		expPath: "/antrea-cluster-policies/cnpA.yaml",
-		expYaml: 
-`apiVersion: crd.antrea.io/v1alpha1
+		expYaml: `apiVersion: crd.antrea.io/v1alpha1
 kind: ClusterNetworkPolicy
 metadata:
   creationTimestamp: null
@@ -346,13 +343,12 @@ status:
 				Name: "TierA",
 			},
 			Spec: crdv1alpha1.TierSpec{
-				Priority: 10,
+				Priority:    10,
 				Description: "This is a test tier",
 			},
 		},
 		expPath: "/antrea-tiers/TierA.yaml",
-		expYaml:
-`apiVersion: crd.antrea.io/v1alpha1
+		expYaml: `apiVersion: crd.antrea.io/v1alpha1
 kind: Tier
 metadata:
   creationTimestamp: null
@@ -366,32 +362,32 @@ spec:
 
 func TestSetupRepo(t *testing.T) {
 	tests := []struct {
-		name string
+		name              string
 		inputK8sResources []test_resource
 		inputCRDResources []test_resource
 	}{
 		{
-			name: "empty-test",
+			name:              "empty-test",
 			inputK8sResources: []test_resource{},
 			inputCRDResources: []test_resource{},
 		},
 		{
-			name: "basic-test",
+			name:              "basic-test",
 			inputK8sResources: []test_resource{np1, np2, np3},
 			inputCRDResources: []test_resource{anp1, acnp1},
 		},
 		{
-			name: "empty-K8s-test",
+			name:              "empty-K8s-test",
 			inputK8sResources: []test_resource{},
 			inputCRDResources: []test_resource{anp1, acnp1},
 		},
 		{
-			name: "empty-CRDs-test",
+			name:              "empty-CRDs-test",
 			inputK8sResources: []test_resource{np1, np2},
 			inputCRDResources: []test_resource{},
 		},
 		{
-			name: "tiers-test",
+			name:              "tiers-test",
 			inputK8sResources: []test_resource{np1, np2},
 			inputCRDResources: []test_resource{anp1, tier1},
 		},
@@ -413,7 +409,7 @@ func TestSetupRepo(t *testing.T) {
 		}
 		fakeK8sClient := newK8sClientSet(k8sResources...)
 		fakeCRDClient := newCRDClientSet(crdResources...)
-		k8s := &Kubernetes{
+		k8s := &client.Kubernetes{
 			PodCache:  map[string][]v1.Pod{},
 			ClientSet: fakeK8sClient,
 			CrdClient: fakeCRDClient,
@@ -422,7 +418,7 @@ func TestSetupRepo(t *testing.T) {
 	}
 }
 
-func runSetupTest(t *testing.T, k8s *Kubernetes, expPaths []string, expYamls []string) {
+func runSetupTest(t *testing.T, k8s *client.Kubernetes, expPaths []string, expYamls []string) {
 	storer := memory.NewStorage()
 	fs := memfs.New()
 	if err := SetupRepoInMem(k8s, storer, fs); err != nil {
@@ -443,7 +439,7 @@ func runSetupTest(t *testing.T, k8s *Kubernetes, expPaths []string, expYamls []s
 func TestRepoDuplicate(t *testing.T) {
 	fakeK8sClient := newK8sClientSet(np1.inputResource)
 	fakeCRDClient := newCRDClientSet(anp1.inputResource)
-	k8s := &Kubernetes{
+	k8s := &client.Kubernetes{
 		PodCache:  map[string][]v1.Pod{},
 		ClientSet: fakeK8sClient,
 		CrdClient: fakeCRDClient,
@@ -464,6 +460,6 @@ func newK8sClientSet(objects ...runtime.Object) *fake.Clientset {
 }
 
 func newCRDClientSet(objects ...runtime.Object) *fakeversioned.Clientset {
-	client := fakeversioned.NewSimpleClientset(objects ...)
+	client := fakeversioned.NewSimpleClientset(objects...)
 	return client
 }

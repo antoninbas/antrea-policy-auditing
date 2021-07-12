@@ -4,6 +4,7 @@ import (
 	"io/ioutil"
 	"os"
 
+	"antrea-audit/git-manager/client"
 	. "antrea-audit/git-manager/gitops"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -13,10 +14,10 @@ import (
 	"github.com/go-git/go-git/v5"
 )
 
-func SetupRepo(k *Kubernetes, dir *string) error {
+func SetupRepo(k *client.Kubernetes, dir *string) error {
 	r, err := createRepo(k, dir)
 	if err == git.ErrRepositoryAlreadyExists {
-		klog.V(2).InfoS("network policy respository already exists - skipping initialization")
+		klog.V(2).InfoS("network policy repository already exists - skipping initialization")
 		return nil
 	} else if err != nil {
 		klog.ErrorS(err, "unable to create network policy repository")
@@ -26,7 +27,7 @@ func SetupRepo(k *Kubernetes, dir *string) error {
 		klog.ErrorS(err, "unable to add resource yamls to repository")
 		return err
 	}
-	if err := AddAndCommit(r, "audit-init", "system@audit.antrea.io", "Initial commit of existing policies"); err != nil {
+	if err := AddAndCommit(r, "audit-manager", "system@audit.antrea.io", "Initial commit of existing policies"); err != nil {
 		klog.ErrorS(err, "unable to add and commit existing resources to repository")
 		return err
 	}
@@ -34,7 +35,7 @@ func SetupRepo(k *Kubernetes, dir *string) error {
 	return nil
 }
 
-func createRepo(k *Kubernetes, dir *string) (*git.Repository, error) {
+func createRepo(k *client.Kubernetes, dir *string) (*git.Repository, error) {
 	if *dir == "" {
 		path, err := os.Getwd()
 		if err != nil {
@@ -54,7 +55,7 @@ func createRepo(k *Kubernetes, dir *string) (*git.Repository, error) {
 	return r, nil
 }
 
-func addResources(k *Kubernetes, dir string) error {
+func addResources(k *client.Kubernetes, dir string) error {
 	os.Mkdir(dir+"/k8s-policies", 0700)
 	os.Mkdir(dir+"/antrea-policies", 0700)
 	os.Mkdir(dir+"/antrea-cluster-policies", 0700)
@@ -78,7 +79,7 @@ func addResources(k *Kubernetes, dir string) error {
 	return nil
 }
 
-func addK8sPolicies(k *Kubernetes, dir string) error {
+func addK8sPolicies(k *client.Kubernetes, dir string) error {
 	policies, err := k.GetK8sPolicies()
 	if err != nil {
 		return err
@@ -89,6 +90,10 @@ func addK8sPolicies(k *Kubernetes, dir string) error {
 			Kind:       "NetworkPolicy",
 			APIVersion: "networking.k8s.io/v1",
 		}
+		np.ObjectMeta.UID = ""
+		np.ObjectMeta.Generation = 0
+		np.ObjectMeta.ManagedFields = nil
+		np.ObjectMeta.Annotations = nil
 		if !StringInSlice(np.Namespace, namespaces) {
 			namespaces = append(namespaces, np.Namespace)
 			os.Mkdir(dir+"/k8s-policies/"+np.Namespace, 0700)
@@ -109,7 +114,7 @@ func addK8sPolicies(k *Kubernetes, dir string) error {
 	return nil
 }
 
-func addAntreaPolicies(k *Kubernetes, dir string) error {
+func addAntreaPolicies(k *client.Kubernetes, dir string) error {
 	policies, err := k.GetAntreaPolicies()
 	if err != nil {
 		return err
@@ -120,6 +125,10 @@ func addAntreaPolicies(k *Kubernetes, dir string) error {
 			Kind:       "NetworkPolicy",
 			APIVersion: "crd.antrea.io/v1alpha1",
 		}
+		np.ObjectMeta.UID = ""
+		np.ObjectMeta.Generation = 0
+		np.ObjectMeta.ManagedFields = nil
+		np.ObjectMeta.Annotations = nil
 		if !StringInSlice(np.Namespace, namespaces) {
 			namespaces = append(namespaces, np.Namespace)
 			os.Mkdir(dir+"/antrea-policies/"+np.Namespace, 0700)
@@ -140,7 +149,7 @@ func addAntreaPolicies(k *Kubernetes, dir string) error {
 	return nil
 }
 
-func addAntreaClusterPolicies(k *Kubernetes, dir string) error {
+func addAntreaClusterPolicies(k *client.Kubernetes, dir string) error {
 	policies, err := k.GetAntreaClusterPolicies()
 	if err != nil {
 		return err
@@ -150,6 +159,10 @@ func addAntreaClusterPolicies(k *Kubernetes, dir string) error {
 			Kind:       "ClusterNetworkPolicy",
 			APIVersion: "crd.antrea.io/v1alpha1",
 		}
+		np.ObjectMeta.UID = ""
+		np.ObjectMeta.Generation = 0
+		np.ObjectMeta.ManagedFields = nil
+		np.ObjectMeta.Annotations = nil
 		path := dir + "/antrea-cluster-policies/" + np.Name + ".yaml"
 		klog.V(2).Infof("Added Antrea cluster policy at network-policy-repository/antrea-cluster-policies/" + np.Name + ".yaml")
 		y, err := yaml.Marshal(&np)
@@ -166,7 +179,7 @@ func addAntreaClusterPolicies(k *Kubernetes, dir string) error {
 	return nil
 }
 
-func addAntreaTiers(k *Kubernetes, dir string) error {
+func addAntreaTiers(k *client.Kubernetes, dir string) error {
 	tiers, err := k.GetAntreaTiers()
 	if err != nil {
 		return err
@@ -176,6 +189,10 @@ func addAntreaTiers(k *Kubernetes, dir string) error {
 			Kind:       "Tier",
 			APIVersion: "crd.antrea.io/v1alpha1",
 		}
+		tier.ObjectMeta.UID = ""
+		tier.ObjectMeta.Generation = 0
+		tier.ObjectMeta.ManagedFields = nil
+		tier.ObjectMeta.Annotations = nil
 		path := dir + "/antrea-tiers/" + tier.Name + ".yaml"
 		klog.V(2).Infof("Added Antrea tier at network-policy-repository/antrea-tiers/" + tier.Name + ".yaml")
 		y, err := yaml.Marshal(&tier)

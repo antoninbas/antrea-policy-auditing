@@ -1,6 +1,7 @@
 package init
 
 import (
+	"antrea-audit/git-manager/client"
 	. "antrea-audit/git-manager/gitops"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -12,10 +13,10 @@ import (
 	"github.com/go-git/go-git/v5/storage/memory"
 )
 
-func SetupRepoInMem(k *Kubernetes, storer *memory.Storage, fs billy.Filesystem) error {
+func SetupRepoInMem(k *client.Kubernetes, storer *memory.Storage, fs billy.Filesystem) error {
 	r, err := git.Init(storer, fs)
 	if err == git.ErrRepositoryAlreadyExists {
-		klog.InfoS("network policy respository already exists - skipping initialization")
+		klog.InfoS("network policy repository already exists - skipping initialization")
 		return err
 	} else if err != nil {
 		klog.ErrorS(err, "unable to initialize git repo")
@@ -33,7 +34,7 @@ func SetupRepoInMem(k *Kubernetes, storer *memory.Storage, fs billy.Filesystem) 
 	return nil
 }
 
-func addResourcesInMem(k *Kubernetes, fs billy.Filesystem) error {
+func addResourcesInMem(k *client.Kubernetes, fs billy.Filesystem) error {
 	fs.MkdirAll("k8s-policies", 0700)
 	fs.MkdirAll("antrea-policies", 0700)
 	fs.MkdirAll("antrea-cluster-policies", 0700)
@@ -57,7 +58,7 @@ func addResourcesInMem(k *Kubernetes, fs billy.Filesystem) error {
 	return nil
 }
 
-func addK8sPoliciesInMem(k *Kubernetes, fs billy.Filesystem) error {
+func addK8sPoliciesInMem(k *client.Kubernetes, fs billy.Filesystem) error {
 	policies, err := k.GetK8sPolicies()
 	if err != nil {
 		return err
@@ -90,7 +91,7 @@ func addK8sPoliciesInMem(k *Kubernetes, fs billy.Filesystem) error {
 	return nil
 }
 
-func addAntreaPoliciesInMem(k *Kubernetes, fs billy.Filesystem) error {
+func addAntreaPoliciesInMem(k *client.Kubernetes, fs billy.Filesystem) error {
 	policies, err := k.GetAntreaPolicies()
 	if err != nil {
 		return err
@@ -123,7 +124,7 @@ func addAntreaPoliciesInMem(k *Kubernetes, fs billy.Filesystem) error {
 	return nil
 }
 
-func addAntreaClusterPoliciesInMem(k *Kubernetes, fs billy.Filesystem) error {
+func addAntreaClusterPoliciesInMem(k *client.Kubernetes, fs billy.Filesystem) error {
 	policies, err := k.GetAntreaClusterPolicies()
 	if err != nil {
 		return err
@@ -151,7 +152,7 @@ func addAntreaClusterPoliciesInMem(k *Kubernetes, fs billy.Filesystem) error {
 	return nil
 }
 
-func addAntreaTiersInMem(k *Kubernetes, fs billy.Filesystem) error {
+func addAntreaTiersInMem(k *client.Kubernetes, fs billy.Filesystem) error {
 	tiers, err := k.GetAntreaTiers()
 	if err != nil {
 		return err
