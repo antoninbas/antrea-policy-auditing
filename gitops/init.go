@@ -133,6 +133,10 @@ func addK8sPolicies(k *Kubernetes, mode string, dir string, fs billy.Filesystem)
 			Kind:       "NetworkPolicy",
 			APIVersion: "networking.k8s.io/v1",
 		}
+		np.ObjectMeta.UID = ""
+		np.ObjectMeta.Generation = 0
+		np.ObjectMeta.ManagedFields = nil
+		np.ObjectMeta.Annotations = nil
 		if !StringInSlice(np.Namespace, namespaces) {
 			namespaces = append(namespaces, np.Namespace)
 			if mode == "disk" {
@@ -178,6 +182,10 @@ func addAntreaPolicies(k *Kubernetes, mode string, dir string, fs billy.Filesyst
 			Kind:       "NetworkPolicy",
 			APIVersion: "crd.antrea.io/v1alpha1",
 		}
+		np.ObjectMeta.UID = ""
+		np.ObjectMeta.Generation = 0
+		np.ObjectMeta.ManagedFields = nil
+		np.ObjectMeta.Annotations = nil
 		if !StringInSlice(np.Namespace, namespaces) {
 			namespaces = append(namespaces, np.Namespace)
 			os.Mkdir(dir+"/antrea-policies/"+np.Namespace, 0700)
@@ -218,6 +226,10 @@ func addAntreaClusterPolicies(k *Kubernetes, mode string, dir string, fs billy.F
 			Kind:       "ClusterNetworkPolicy",
 			APIVersion: "crd.antrea.io/v1alpha1",
 		}
+		np.ObjectMeta.UID = ""
+		np.ObjectMeta.Generation = 0
+		np.ObjectMeta.ManagedFields = nil
+		np.ObjectMeta.Annotations = nil
 		path := dir + "/antrea-cluster-policies/" + np.Name + ".yaml"
 		klog.V(2).Infof("Added Antrea cluster policy at network-policy-repository/antrea-cluster-policies/" + np.Name + ".yaml")
 		y, err := yaml.Marshal(&np)
@@ -254,6 +266,10 @@ func addAntreaTiers(k *Kubernetes, mode string, dir string, fs billy.Filesystem)
 			Kind:       "Tier",
 			APIVersion: "crd.antrea.io/v1alpha1",
 		}
+		tier.ObjectMeta.UID = ""
+		tier.ObjectMeta.Generation = 0
+		tier.ObjectMeta.ManagedFields = nil
+		tier.ObjectMeta.Annotations = nil
 		path := dir + "/antrea-tiers/" + tier.Name + ".yaml"
 		klog.V(2).Infof("Added Antrea tier at network-policy-repository/antrea-tiers/" + tier.Name + ".yaml")
 		y, err := yaml.Marshal(&tier)

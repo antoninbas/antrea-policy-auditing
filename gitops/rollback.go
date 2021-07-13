@@ -16,7 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-func tagToCommit(r *git.Repository, tag string) (*object.Commit, error) {
+func TagToCommit(r *git.Repository, tag string) (*object.Commit, error) {
 	ref, err := r.Tag(tag)
 	if err != nil {
 		klog.ErrorS(err, "could not retrieve tag reference")
@@ -35,7 +35,7 @@ func tagToCommit(r *git.Repository, tag string) (*object.Commit, error) {
 	return commit, nil
 }
 
-func hashToCommit(r *git.Repository, commitSha string) *object.Commit {
+func HashToCommit(r *git.Repository, commitSha string) *object.Commit {
 	hash := plumbing.NewHash(commitSha)
 	commit, err := r.CommitObject(hash)
 	if err != nil {
