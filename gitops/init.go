@@ -37,7 +37,7 @@ func SetupRepo(k *Kubernetes, mode string, dir string) (*CustomRepo, error) {
 		Dir:  dir,
 		Fs:   fs,
 	}
-	r, err := createRepo(k, mode, &dir, storer, cr.Fs)
+	r, err := createRepo(k, mode, &cr.Dir, storer, cr.Fs)
 	if err == git.ErrRepositoryAlreadyExists {
 		klog.V(2).InfoS("network policy respository already exists - skipping initialization")
 		return nil, err
@@ -48,7 +48,7 @@ func SetupRepo(k *Kubernetes, mode string, dir string) (*CustomRepo, error) {
 	cr.Mutex.Lock()
 	defer cr.Mutex.Unlock()
 	cr.Repo = r
-	if err := addResources(k, mode, dir, cr.Fs); err != nil {
+	if err := addResources(k, mode, cr.Dir, cr.Fs); err != nil {
 		klog.ErrorS(err, "unable to add resource yamls to repository")
 		return nil, err
 	}
@@ -56,7 +56,7 @@ func SetupRepo(k *Kubernetes, mode string, dir string) (*CustomRepo, error) {
 		klog.ErrorS(err, "unable to add and commit existing resources to repository")
 		return nil, err
 	}
-	klog.V(2).Infof("Repository successfully initialized at %s", dir)
+	klog.V(2).Infof("Repository successfully initialized at %s", cr.Dir)
 	return &cr, nil
 }
 
@@ -136,7 +136,7 @@ func addK8sPolicies(k *Kubernetes, mode string, dir string, fs billy.Filesystem)
 		np.ObjectMeta.UID = ""
 		np.ObjectMeta.Generation = 0
 		np.ObjectMeta.ManagedFields = nil
-		np.ObjectMeta.Annotations = nil
+		delete(np.ObjectMeta.Annotations, "kubectl.kubernetes.io/last-applied-configuration")
 		if !StringInSlice(np.Namespace, namespaces) {
 			namespaces = append(namespaces, np.Namespace)
 			if mode == "disk" {
@@ -185,7 +185,7 @@ func addAntreaPolicies(k *Kubernetes, mode string, dir string, fs billy.Filesyst
 		np.ObjectMeta.UID = ""
 		np.ObjectMeta.Generation = 0
 		np.ObjectMeta.ManagedFields = nil
-		np.ObjectMeta.Annotations = nil
+		delete(np.ObjectMeta.Annotations, "kubectl.kubernetes.io/last-applied-configuration")
 		if !StringInSlice(np.Namespace, namespaces) {
 			namespaces = append(namespaces, np.Namespace)
 			os.Mkdir(dir+"/antrea-policies/"+np.Namespace, 0700)
@@ -229,7 +229,7 @@ func addAntreaClusterPolicies(k *Kubernetes, mode string, dir string, fs billy.F
 		np.ObjectMeta.UID = ""
 		np.ObjectMeta.Generation = 0
 		np.ObjectMeta.ManagedFields = nil
-		np.ObjectMeta.Annotations = nil
+		delete(np.ObjectMeta.Annotations, "kubectl.kubernetes.io/last-applied-configuration")
 		path := dir + "/antrea-cluster-policies/" + np.Name + ".yaml"
 		klog.V(2).Infof("Added Antrea cluster policy at network-policy-repository/antrea-cluster-policies/" + np.Name + ".yaml")
 		y, err := yaml.Marshal(&np)
@@ -269,7 +269,7 @@ func addAntreaTiers(k *Kubernetes, mode string, dir string, fs billy.Filesystem)
 		tier.ObjectMeta.UID = ""
 		tier.ObjectMeta.Generation = 0
 		tier.ObjectMeta.ManagedFields = nil
-		tier.ObjectMeta.Annotations = nil
+		delete(tier.ObjectMeta.Annotations, "kubectl.kubernetes.io/last-applied-configuration")
 		path := dir + "/antrea-tiers/" + tier.Name + ".yaml"
 		klog.V(2).Infof("Added Antrea tier at network-policy-repository/antrea-tiers/" + tier.Name + ".yaml")
 		y, err := yaml.Marshal(&tier)

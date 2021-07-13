@@ -41,13 +41,13 @@ var (
 			},
 		},
 		expPath: "/k8s-policies/nsA/npA.yaml",
-		expYaml: `apiVersion: networking.k8s.io/v1
+		expYaml: 
+`apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   creationTimestamp: null
   name: npA
   namespace: nsA
-  uid: uidA
 spec:
   ingress:
   - {}
@@ -66,13 +66,13 @@ spec:
 			},
 		},
 		expPath: "/k8s-policies/nsA/npB.yaml",
-		expYaml: `apiVersion: networking.k8s.io/v1
+		expYaml: 
+`apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   creationTimestamp: null
   name: npB
   namespace: nsA
-  uid: uidB
 spec:
   egress:
   - {}
@@ -119,13 +119,13 @@ spec:
 			},
 		},
 		expPath: "/k8s-policies/nsB/npC.yaml",
-		expYaml: `apiVersion: networking.k8s.io/v1
+		expYaml: 
+`apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   creationTimestamp: null
   name: npC
   namespace: nsB
-  uid: uidC
 spec:
   egress:
   - ports:
@@ -195,13 +195,13 @@ spec:
 			},
 		},
 		expPath: "/antrea-policies/nsA/npA.yaml",
-		expYaml: `apiVersion: crd.antrea.io/v1alpha1
+		expYaml: 
+`apiVersion: crd.antrea.io/v1alpha1
 kind: NetworkPolicy
 metadata:
   creationTimestamp: null
   name: npA
   namespace: nsA
-  uid: uidA
 spec:
   appliedTo:
   - podSelector:
@@ -286,12 +286,12 @@ status:
 			},
 		},
 		expPath: "/antrea-cluster-policies/cnpA.yaml",
-		expYaml: `apiVersion: crd.antrea.io/v1alpha1
+		expYaml: 
+`apiVersion: crd.antrea.io/v1alpha1
 kind: ClusterNetworkPolicy
 metadata:
   creationTimestamp: null
   name: cnpA
-  uid: uidA
 spec:
   appliedTo:
   - podSelector:
@@ -344,7 +344,8 @@ status:
 			},
 		},
 		expPath: "/antrea-tiers/TierA.yaml",
-		expYaml: `apiVersion: crd.antrea.io/v1alpha1
+		expYaml: 
+`apiVersion: crd.antrea.io/v1alpha1
 kind: Tier
 metadata:
   creationTimestamp: null

@@ -55,7 +55,7 @@ func (cr *CustomRepo) modifyFile(event auditv1.Event) error {
 	resource.Metadata.UID = ""
 	resource.Metadata.Generation = 0
 	resource.Metadata.ManagedFields = nil
-	resource.Metadata.Annotations = nil
+	delete(resource.Metadata.Annotations, "kubectl.kubernetes.io/last-applied-configuration")
 	y, err := yaml.Marshal(&resource)
 	if err != nil {
 		klog.ErrorS(err, "unable to marshal new resource config")
