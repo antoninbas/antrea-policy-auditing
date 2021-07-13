@@ -1,27 +1,79 @@
 package webhook
 
 import (
+    "time"
     "io/ioutil"
     "net/http"
+    "encoding/json"
 
-    "antrea-audit/git-manager/gitops"
-
+    "antrea-audit/gitops"
     "k8s.io/klog/v2"
 )
 
-func ReceiveEvents(dir string, port string) error {
+type Change struct {
+    Sha string `json:"sha"`
+    Author string `json:"author"`
+    Message string `json:"Message"`
+}
+
+type filters struct {
+    Author string `json:"author"`
+    Since time.Time `json:"since"`
+    Until time.Time `json:"until"`
+    FileName string `json:"filename"`
+}
+
+func events(w http.ResponseWriter, r *http.Request, cr *gitops.CustomRepo) {
+    defer r.Body.Close()
+    body, err := ioutil.ReadAll(r.Body)
+    if err != nil {
+        klog.ErrorS(err, "unable to read audit body")
+    }
+    klog.V(3).Infof("Audit received: %s", string(body))
+    if err := cr.HandleEventList(body); err != nil {
+        klog.ErrorS(err, "unable to process audit event list")
+    }
+}
+
+func changes(w http.ResponseWriter, r *http.Request, cr *gitops.CustomRepo) {
+    defer r.Body.Close()
+    body, err := ioutil.ReadAll(r.Body)
+    if err != nil {
+        klog.ErrorS(err, "unable to read audit body")
+    }
+    klog.V(3).Infof("Filters received: %s", string(body))
+    filts := filters{}
+    err = json.Unmarshal(body, &filts)
+    commits, err := cr.FilterCommits(&filts.Author, &filts.Since, &filts.Until, &filts.FileName)
+    if err != nil {
+        klog.ErrorS(err, "unable to process audit event list")
+    }
+    var changes []Change
+    for _, c := range commits {
+        chg := Change{}
+        chg.Sha = c.Hash.String()
+        chg.Author = c.Author.Name
+        chg.Message = c.Message
+        changes = append(changes, chg)
+    }
+    jsonstring, err := json.Marshal(changes)
+    if err != nil {
+        klog.ErrorS(err, "unable to marshal list of changes")
+    }
+    _, err = w.Write(jsonstring)
+    if err != nil {
+        klog.ErrorS(err, "unable to write json to response writer")
+    }
+}
+
+func ReceiveEvents(dir string, port string, cr *gitops.CustomRepo) error {
     http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-        defer r.Body.Close()
-        body, err := ioutil.ReadAll(r.Body)
-        if err != nil {
-            klog.ErrorS(err, "unable to read audit body")
-        }
-        klog.V(3).Infof("Audit received: %s", string(body))
-        if err := gitops.HandleEventList(dir, body); err != nil {
-            klog.ErrorS(err, "unable to process audit event list")
-        }
+        events(w, r, cr)
     })
-    klog.V(2).Infof("Audit webhook server started, listening on port %s", port)
+    http.HandleFunc("/changes", func(w http.ResponseWriter, r *http.Request) {
+        changes(w, r, cr)
+    })
+
     if err := http.ListenAndServe(":"+string(port), nil); err != nil {
 	    klog.ErrorS(err, "Audit webhook service died")
         return err

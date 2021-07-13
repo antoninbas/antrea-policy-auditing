@@ -3,15 +3,11 @@ package test
 import (
     "testing"
 
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
-	memfs "github.com/go-git/go-billy/v5/memfs"
-	memory "github.com/go-git/go-git/v5/storage/memory"
 	v1 "k8s.io/api/core/v1"
-	. "antrea-audit/git-manager/init"
+	. "antrea-audit/gitops"
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"github.com/go-git/go-git/v5"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/runtime"
 	fake "k8s.io/client-go/kubernetes/fake"
@@ -26,6 +22,7 @@ type test_resource struct {
 }
 
 var (
+    dir = ""
 	selectorA = metav1.LabelSelector{MatchLabels: map[string]string{"foo1": "bar1"}}
 	selectorB = metav1.LabelSelector{MatchLabels: map[string]string{"foo2": "bar2"}}
 	selectorC = metav1.LabelSelector{MatchLabels: map[string]string{"foo3": "bar3"}}
@@ -33,7 +30,7 @@ var (
 	int80 = intstr.FromInt(80)
 	int81 = intstr.FromInt(81)
 	allowAction = crdv1alpha1.RuleActionAllow
-	np1 = test_resource{
+	Np1 = test_resource{
 		inputResource: &networkingv1.NetworkPolicy{
 				ObjectMeta: metav1.ObjectMeta{Namespace: "nsA", Name: "npA", UID: "uidA"},
 				Spec: networkingv1.NetworkPolicySpec{
@@ -43,7 +40,7 @@ var (
 				},
 		},
 		expPath: "/k8s-policies/nsA/npA.yaml",
-		expYaml: 
+		expYaml:
 `apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -69,7 +66,7 @@ spec:
 			},
 		},
 		expPath: "/k8s-policies/nsA/npB.yaml",
-		expYaml: 
+		expYaml:
 `apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -123,7 +120,7 @@ spec:
 			},
 		},
 		expPath: "/k8s-policies/nsB/npC.yaml",
-		expYaml: 
+		expYaml:
 `apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -157,7 +154,7 @@ spec:
       foo1: bar1
 `,
 	}
-	anp1 = test_resource{
+	Anp1 = test_resource{
 		inputResource: &crdv1alpha1.NetworkPolicy{
 			ObjectMeta: metav1.ObjectMeta{Namespace: "nsA", Name: "npA", UID: "uidA"},
 			Spec: crdv1alpha1.NetworkPolicySpec{
@@ -200,7 +197,7 @@ spec:
 			},
 		},
 		expPath: "/antrea-policies/nsA/npA.yaml",
-		expYaml: 
+		expYaml:
 `apiVersion: crd.antrea.io/v1alpha1
 kind: NetworkPolicy
 metadata:
@@ -292,7 +289,7 @@ status:
 			},
 		},
 		expPath: "/antrea-cluster-policies/cnpA.yaml",
-		expYaml: 
+		expYaml:
 `apiVersion: crd.antrea.io/v1alpha1
 kind: ClusterNetworkPolicy
 metadata:
@@ -377,23 +374,23 @@ func TestSetupRepo(t *testing.T) {
 		},
 		{
 			name: "basic-test",
-			inputK8sResources: []test_resource{np1, np2, np3},
-			inputCRDResources: []test_resource{anp1, acnp1},
+			inputK8sResources: []test_resource{Np1, np2, np3},
+			inputCRDResources: []test_resource{Anp1, acnp1},
 		},
 		{
 			name: "empty-K8s-test",
 			inputK8sResources: []test_resource{},
-			inputCRDResources: []test_resource{anp1, acnp1},
+			inputCRDResources: []test_resource{Anp1, acnp1},
 		},
 		{
 			name: "empty-CRDs-test",
-			inputK8sResources: []test_resource{np1, np2},
+			inputK8sResources: []test_resource{Np1, np2},
 			inputCRDResources: []test_resource{},
 		},
 		{
 			name: "tiers-test",
-			inputK8sResources: []test_resource{np1, np2},
-			inputCRDResources: []test_resource{anp1, tier1},
+			inputK8sResources: []test_resource{Np1, np2},
+			inputCRDResources: []test_resource{Anp1, tier1},
 		},
 	}
 	for _, test := range tests {
@@ -411,8 +408,8 @@ func TestSetupRepo(t *testing.T) {
 			expectedPaths = append(expectedPaths, resource.expPath)
 			expectedYamls = append(expectedYamls, resource.expYaml)
 		}
-		fakeK8sClient := newK8sClientSet(k8sResources...)
-		fakeCRDClient := newCRDClientSet(crdResources...)
+		fakeK8sClient := NewK8sClientSet(k8sResources...)
+		fakeCRDClient := NewCRDClientSet(crdResources...)
 		k8s := &Kubernetes{
 			PodCache:  map[string][]v1.Pod{},
 			ClientSet: fakeK8sClient,
@@ -423,17 +420,16 @@ func TestSetupRepo(t *testing.T) {
 }
 
 func runSetupTest(t *testing.T, k8s *Kubernetes, expPaths []string, expYamls []string) {
-	storer := memory.NewStorage()
-	fs := memfs.New()
-	if err := SetupRepoInMem(k8s, storer, fs); err != nil {
+	cr, err := SetupRepo(k8s, "mem", dir)
+    if err != nil {
 		t.Errorf("Error (TestSetupRepo): unable to set up repo")
 	}
 	for i, path := range expPaths {
-		file, err := fs.Open(path)
+		file, err := cr.Fs.Open(path)
 		if err != nil {
 			t.Errorf("Error (TestSetupRepo): unable to open file")
 		}
-		fstat, _ := fs.Stat(path)
+		fstat, _ := cr.Fs.Stat(path)
 		var buffer = make([]byte, fstat.Size())
 		file.Read(buffer)
 		assert.Equal(t, string(buffer), expYamls[i], "Error (TestSetupRepo): file does not match expected YAML")
@@ -441,29 +437,29 @@ func runSetupTest(t *testing.T, k8s *Kubernetes, expPaths []string, expYamls []s
 }
 
 func TestRepoDuplicate(t *testing.T) {
-	fakeK8sClient := newK8sClientSet(np1.inputResource)
-	fakeCRDClient := newCRDClientSet(anp1.inputResource)
+    fakeK8sClient := NewK8sClientSet(Np1.inputResource)
+	fakeCRDClient := NewCRDClientSet(Anp1.inputResource)
 	k8s := &Kubernetes{
 		PodCache:  map[string][]v1.Pod{},
 		ClientSet: fakeK8sClient,
 		CrdClient: fakeCRDClient,
 	}
-	storer := memory.NewStorage()
-	fs := memfs.New()
-	if err := SetupRepoInMem(k8s, storer, fs); err != nil {
+	_, err := SetupRepo(k8s, "mem", dir)
+    if err != nil {
 		t.Errorf("Error (TestRepoDuplicate): unable to set up repo for the first time")
 	}
-	if err := SetupRepoInMem(k8s, storer, fs); errors.Cause(err) != git.ErrRepositoryAlreadyExists {
-		t.Errorf("Error (TestRepoDuplicate): should have detected that repo already exists")
+	_, err = SetupRepo(k8s, "mem", dir)
+    if err != nil {
+		t.Errorf("Error (TestRepoDuplicate): unable to set up repo for the second time")
 	}
 }
 
-func newK8sClientSet(objects ...runtime.Object) *fake.Clientset {
+func NewK8sClientSet(objects ...runtime.Object) *fake.Clientset {
 	client := fake.NewSimpleClientset(objects...)
 	return client
 }
 
-func newCRDClientSet(objects ...runtime.Object) *fakeversioned.Clientset {
+func NewCRDClientSet(objects ...runtime.Object) *fakeversioned.Clientset {
 	client := fakeversioned.NewSimpleClientset(objects ...)
 	return client
 }
