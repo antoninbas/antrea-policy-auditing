@@ -5,30 +5,20 @@ import (
     "testing"
     "io/ioutil"
 
-    "antrea-audit/git-manager/gitops"
-    "github.com/go-git/go-git/v5"
+    "antrea-audit/gitops"
 
-    billy "github.com/go-git/go-billy/v5"
-    memory "github.com/go-git/go-git/v5/storage/memory"
-    memfs "github.com/go-git/go-billy/v5/memfs"
+    v1 "k8s.io/api/core/v1"
 )
 
 var directory = ""
 
 func TestHandleEventList(t *testing.T) {
-    storer := memory.NewStorage()
-    fs := memfs.New()
-
-    err := SetupMemRepo(storer, fs)
-    if err != nil {
-        fmt.Println(err)
-        t.Errorf("should not have error for correct file")
-    }
-
-    r, err := git.Open(storer, fs)
-    if err != nil {
-        fmt.Println(err)
-        t.Errorf("should not have error for correct file")
+    fakeK8sClient := NewK8sClientSet(Np1.inputResource)
+    fakeCRDClient := NewCRDClientSet(Anp1.inputResource)
+    k8s := &gitops.Kubernetes{
+        PodCache:  map[string][]v1.Pod{},
+        ClientSet: fakeK8sClient,
+        CrdClient: fakeCRDClient,
     }
 
     jsonStr, err := ioutil.ReadFile("./files/audit-log.txt")
@@ -37,17 +27,15 @@ func TestHandleEventList(t *testing.T) {
         t.Errorf("should not have error for correct file")
     }
 
-    err = gitops.HandleEventListInMem(directory, r, fs, jsonStr)
+    cr, err := gitops.SetupRepo(k8s, "mem", directory)
     if err != nil {
         fmt.Println(err)
         t.Errorf("should not have error for correct file")
     }
-}
 
-func SetupMemRepo(storer *memory.Storage, fs billy.Filesystem) (error) {
-    _, err := git.Init(storer, fs)
-    fs.MkdirAll("k8s-policies", 0700)
-    fs.MkdirAll("antrea-policies", 0700)
-    fs.MkdirAll("antrea-cluster-policies", 0700)
-    return err
+    err = cr.HandleEventList(jsonStr)
+    if err != nil {
+        fmt.Println(err)
+        t.Errorf("should not have error for correct file")
+    }
 }

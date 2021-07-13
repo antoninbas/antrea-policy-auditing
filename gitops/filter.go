@@ -8,11 +8,13 @@ import (
     "k8s.io/klog/v2"
 )
 
-func FilterCommits(r *git.Repository, author *string, since *time.Time, until *time.Time, policyResourceName *string) ([]object.Commit, error) {
+func (cr *CustomRepo) FilterCommits(author *string, since *time.Time, until *time.Time, policyResourceName *string) ([]object.Commit, error) {
     var logopts git.LogOptions
     var filteredCommits []object.Commit
 
-    ref, err := r.Head()
+    cr.Mutex.Lock()
+    defer cr.Mutex.Unlock()
+    ref, err := cr.Repo.Head()
     if err != nil {
         klog.ErrorS(err, "unable to get ref head from repository")
         return filteredCommits, err
@@ -29,7 +31,7 @@ func FilterCommits(r *git.Repository, author *string, since *time.Time, until *t
         logopts.FileName = policyResourceName
     }
 
-    cIter, err := r.Log(&logopts)
+    cIter, err := cr.Repo.Log(&logopts)
     if err != nil {
         klog.ErrorS(err, "unable get logs from repository")
         return filteredCommits, err
@@ -39,7 +41,6 @@ func FilterCommits(r *git.Repository, author *string, since *time.Time, until *t
         if *author == "" || c.Author.Name == *author {
             filteredCommits = append(filteredCommits, *c)
         }
-
         return nil
     })
     return filteredCommits, err
