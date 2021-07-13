@@ -3,8 +3,7 @@ package main
 import (
 	"flag"
 
-	"antrea-audit/git-manager/client"
-	. "antrea-audit/git-manager/init"
+	"antrea-audit/gitops"
 	"antrea-audit/webhook"
 
 	"k8s.io/klog/v2"
@@ -23,12 +22,12 @@ func main() {
 	)
 	klog.InitFlags(nil)
 	processArgs(&portFlag, &dirFlag)
-	k8s, err := client.NewKubernetes()
+	k8s, err := gitops.NewKubernetes()
 	if err != nil {
 		klog.ErrorS(err, "unable to create kube client")
 		return
 	}
-	cr, err := SetupRepo(k8s, "disk", dirFlag)
+	cr, err := gitops.SetupRepo(k8s, "disk", dirFlag)
 	if err != nil {
 		klog.ErrorS(err, "unable to set up network policy repository")
 		return
