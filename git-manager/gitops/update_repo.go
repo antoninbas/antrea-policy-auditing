@@ -1,6 +1,7 @@
 package gitops
 
 import (
+	"encoding/json"
 	"io/ioutil"
 	"os"
 	"time"
@@ -9,9 +10,17 @@ import (
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/object"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	auditv1 "k8s.io/apiserver/pkg/apis/audit/v1"
 	"k8s.io/klog/v2"
 )
+
+type AuditResource struct {
+	Kind       string                 `json:"kind"`
+	APIVersion string                 `json:"apiVersion"`
+	Metadata   metav1.ObjectMeta      `json:"metadata"`
+	Spec       map[string]interface{} `json:"spec"`
+}
 
 func AddAndCommit(r *git.Repository, username string, email string, message string) error {
 	w, err := r.Worktree()
@@ -39,9 +48,18 @@ func AddAndCommit(r *git.Repository, username string, email string, message stri
 }
 
 func modifyFile(dir string, event auditv1.Event) error {
-	y, err := yaml.JSONToYAML(event.ResponseObject.Raw)
+	resource := AuditResource{}
+	if err := json.Unmarshal(event.ResponseObject.Raw, &resource); err != nil {
+		klog.ErrorS(err, "unable to unmarshal ResponseObject resource config")
+		return err
+	}
+	resource.Metadata.UID = ""
+	resource.Metadata.Generation = 0
+	resource.Metadata.ManagedFields = nil
+	resource.Metadata.Annotations = nil
+	y, err := yaml.Marshal(&resource)
 	if err != nil {
-		klog.ErrorS(err, "unable to convert event ResponseObject from JSON to YAML format")
+		klog.ErrorS(err, "unable to marshal new resource config")
 		return err
 	}
 	path := getAbsRepoPath(dir, event)
