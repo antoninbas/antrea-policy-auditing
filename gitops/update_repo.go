@@ -9,7 +9,6 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/object"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	auditv1 "k8s.io/apiserver/pkg/apis/audit/v1"
 	"k8s.io/klog/v2"
@@ -22,8 +21,8 @@ type AuditResource struct {
 	Spec       map[string]interface{} `json:"spec"`
 }
 
-func AddAndCommit(r *git.Repository, username string, email string, message string) error {
-	w, err := r.Worktree()
+func (cr *CustomRepo) AddAndCommit(username string, email string, message string) error {
+	w, err := cr.Repo.Worktree()
 	if err != nil {
 		klog.ErrorS(err, "unable to get git worktree from repository")
 		return err
@@ -47,7 +46,7 @@ func AddAndCommit(r *git.Repository, username string, email string, message stri
 	return nil
 }
 
-func modifyFile(dir string, event auditv1.Event) error {
+func (cr *CustomRepo) modifyFile(event auditv1.Event) error {
 	resource := AuditResource{}
 	if err := json.Unmarshal(event.ResponseObject.Raw, &resource); err != nil {
 		klog.ErrorS(err, "unable to unmarshal ResponseObject resource config")
@@ -62,20 +61,31 @@ func modifyFile(dir string, event auditv1.Event) error {
 		klog.ErrorS(err, "unable to marshal new resource config")
 		return err
 	}
-	path := getAbsRepoPath(dir, event)
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		os.Mkdir(path, 0700)
-	}
-	path += getFileName(event)
-	if err := ioutil.WriteFile(path, y, 0644); err != nil {
-		klog.ErrorS(err, "unable to write/update file in repository")
-		return err
+	path := getAbsRepoPath(cr.Dir, event)
+	if cr.Mode == "disk" {
+		if _, err := os.Stat(path); os.IsNotExist(err) {
+			os.Mkdir(path, 0700)
+		}
+		path += getFileName(event)
+		if err := ioutil.WriteFile(path, y, 0644); err != nil {
+			klog.ErrorS(err, "unable to write/update file in repository")
+			return err
+		}
+	} else {
+		path += getFileName(event)
+		newfile, err := cr.Fs.Create(path)
+		if err != nil {
+			klog.ErrorS(err, "unable to create file at: ", "path", path)
+			return err
+		}
+		newfile.Write(y)
+		newfile.Close()
 	}
 	return nil
 }
 
-func deleteFile(r *git.Repository, dir string, event auditv1.Event) error {
-	w, err := r.Worktree()
+func (cr *CustomRepo) deleteFile(event auditv1.Event) error {
+	w, err := cr.Repo.Worktree()
 	if err != nil {
 		klog.ErrorS(err, "unable to get git worktree from repository")
 		return err
@@ -83,7 +93,7 @@ func deleteFile(r *git.Repository, dir string, event auditv1.Event) error {
 	path := getRelRepoPath(event) + getFileName(event)
 	_, err = w.Remove(path)
 	if err != nil {
-		klog.ErrorS(err, "unable to remove file", "path", path)
+		klog.ErrorS(err, "unable to remove file at: ", "path", path)
 		return err
 	}
 	return nil

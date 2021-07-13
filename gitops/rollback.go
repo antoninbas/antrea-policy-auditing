@@ -14,8 +14,6 @@ import (
 	netv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-
-	"antrea-audit/git-manager/client"
 )
 
 func tagToCommit(r *git.Repository, tag string) (*object.Commit, error) {
@@ -71,7 +69,7 @@ func RollbackRepo(repoDir string, r *git.Repository, targetCommit *object.Commit
 		klog.ErrorS(err, "unable to get patch between commits")
 		return err
 	}
-	k8s, err := client.NewKubernetes()
+	k8s, err := NewKubernetes()
 	if err != nil {
 		klog.ErrorS(err, "error while setting up new kube clients")
 		return err
@@ -101,13 +99,13 @@ func RollbackRepo(repoDir string, r *git.Repository, targetCommit *object.Commit
 	}
 
 	// Finally commit changes to repo after cluster updates
-	username := "audit-manager"
-	email := "system@audit.antrea.io"
-	message := "Rollback to commit " + targetCommit.Hash.String()
-	if err := AddAndCommit(r, username, email, message); err != nil {
-		klog.ErrorS(err, "error while committing rollback")
-		return err
-	}
+	// username := "audit-manager"
+	// email := "system@audit.antrea.io"
+	// message := "Rollback to commit " + targetCommit.Hash.String()
+	// if err := AddAndCommit(r, username, email, message); err != nil {
+	// 	klog.ErrorS(err, "error while committing rollback")
+	// 	return err
+	// }
 	klog.Infof("Rollback to commit %s successful", targetCommit.Hash.String())
 	return nil
 }
@@ -133,7 +131,7 @@ func resetWorktree(w *git.Worktree, hash plumbing.Hash, resetMode bool) error {
 	return nil
 }
 
-func deletePatch(repoDir string, patch *object.Patch, k8s *client.Kubernetes) error {
+func deletePatch(repoDir string, patch *object.Patch, k8s *Kubernetes) error {
 	for _, filePatch := range patch.FilePatches() {
 		fromFile, toFile := filePatch.Files()
 		if toFile == nil {
@@ -147,7 +145,7 @@ func deletePatch(repoDir string, patch *object.Patch, k8s *client.Kubernetes) er
 	return nil
 }
 
-func createUpdatePatch(repoDir string, patch *object.Patch, k8s *client.Kubernetes) error {
+func createUpdatePatch(repoDir string, patch *object.Patch, k8s *Kubernetes) error {
 	for _, filePatch := range patch.FilePatches() {
 		_, toFile := filePatch.Files()
 		if toFile != nil {
@@ -161,7 +159,7 @@ func createUpdatePatch(repoDir string, patch *object.Patch, k8s *client.Kubernet
 	return nil
 }
 
-func CreateOrUpdateResource(k *client.Kubernetes, path string) error {
+func CreateOrUpdateResource(k *Kubernetes, path string) error {
 	apiVersion, kind, err := getMetadata(path)
 	if err != nil {
 		klog.ErrorS(err, "error while retrieving metadata from file")
@@ -208,7 +206,7 @@ func CreateOrUpdateResource(k *client.Kubernetes, path string) error {
 	return nil
 }
 
-func DeleteResource(k *client.Kubernetes, path string) error {
+func DeleteResource(k *Kubernetes, path string) error {
 	apiVersion, kind, err := getMetadata(path)
 	if err != nil {
 		klog.ErrorS(err, "error while retrieving metadata from file")
