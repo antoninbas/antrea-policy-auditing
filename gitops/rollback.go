@@ -16,13 +16,15 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-func TagToCommit(r *git.Repository, tag string) (*object.Commit, error) {
-	ref, err := r.Tag(tag)
+func (cr *CustomRepo) TagToCommit(tag string) (*object.Commit, error) {
+	cr.Mutex.Lock()
+    defer cr.Mutex.Unlock()
+	ref, err := cr.Repo.Tag(tag)
 	if err != nil {
 		klog.ErrorS(err, "could not retrieve tag reference")
 		return nil, err
 	}
-	obj, err := r.TagObject(ref.Hash())
+	obj, err := cr.Repo.TagObject(ref.Hash())
 	if err != nil {
 		klog.ErrorS(err, "could not retrieve tag object")
 		return nil, err
@@ -35,31 +37,35 @@ func TagToCommit(r *git.Repository, tag string) (*object.Commit, error) {
 	return commit, nil
 }
 
-func HashToCommit(r *git.Repository, commitSha string) *object.Commit {
+func (cr *CustomRepo) HashToCommit(commitSha string) *object.Commit {
+	cr.Mutex.Lock()
+    defer cr.Mutex.Unlock()
 	hash := plumbing.NewHash(commitSha)
-	commit, err := r.CommitObject(hash)
+	commit, err := cr.Repo.CommitObject(hash)
 	if err != nil {
 		klog.ErrorS(err, "could not get commit from hash")
 	}
 	return commit
 }
 
-func RollbackRepo(repoDir string, r *git.Repository, targetCommit *object.Commit) error {
+func (cr *CustomRepo) RollbackRepo(targetCommit *object.Commit) error {
 	klog.V(2).Infof("Rollback to commit %s initiated, ignoring all non-rollback generated audits",
 		targetCommit.Hash.String())
+	cr.Mutex.Lock()
+	defer cr.Mutex.Unlock()
 
 	// Get patch between head and target commit
-	w, err := r.Worktree()
+	w, err := cr.Repo.Worktree()
 	if err != nil {
 		klog.ErrorS(err, "unable to get git worktree from repository")
 		return err
 	}
-	h, err := r.Head()
+	h, err := cr.Repo.Head()
 	if err != nil {
 		klog.ErrorS(err, "unable to get repo head")
 		return err
 	}
-	headCommit, err := r.CommitObject(h.Hash())
+	headCommit, err := cr.Repo.CommitObject(h.Hash())
 	if err != nil {
 		klog.ErrorS(err, "unable to get head commit")
 		return err
@@ -74,8 +80,9 @@ func RollbackRepo(repoDir string, r *git.Repository, targetCommit *object.Commit
 		klog.ErrorS(err, "error while setting up new kube clients")
 		return err
 	}
+
 	// Must do cluster delete requests before resetting in order to be able to read metadata from files
-	if err := deletePatch(repoDir, patch, k8s); err != nil {
+	if err := doDeletePatch(cr.Dir, patch, k8s); err != nil {
 		klog.ErrorS(err, "could not patch cluster to old commit state (delete phase)")
 		return err
 	}
@@ -93,20 +100,20 @@ func RollbackRepo(repoDir string, r *git.Repository, targetCommit *object.Commit
 	}
 
 	// Must similarly do cluster update/create requests after resetting
-	if err := createUpdatePatch(repoDir, patch, k8s); err != nil {
+	if err := doCreateUpdatePatch(cr.Dir, patch, k8s); err != nil {
 		klog.ErrorS(err, "could not patch cluster to old commit state (create/update phase)")
 		return err
 	}
 
 	// Finally commit changes to repo after cluster updates
-	// username := "audit-manager"
-	// email := "system@audit.antrea.io"
-	// message := "Rollback to commit " + targetCommit.Hash.String()
-	// if err := AddAndCommit(r, username, email, message); err != nil {
-	// 	klog.ErrorS(err, "error while committing rollback")
-	// 	return err
-	// }
-	klog.Infof("Rollback to commit %s successful", targetCommit.Hash.String())
+	username := "audit-manager"
+	email := "system@audit.antrea.io"
+	message := "Rollback to commit " + targetCommit.Hash.String()
+	if err := cr.AddAndCommit(username, email, message); err != nil {
+		klog.ErrorS(err, "error while committing rollback")
+		return err
+	}
+	klog.V(2).Infof("Rollback to commit %s successful", targetCommit.Hash.String())
 	return nil
 }
 
@@ -131,35 +138,35 @@ func resetWorktree(w *git.Worktree, hash plumbing.Hash, resetMode bool) error {
 	return nil
 }
 
-func deletePatch(repoDir string, patch *object.Patch, k8s *Kubernetes) error {
+func doDeletePatch(repoDir string, patch *object.Patch, k8s *Kubernetes) error {
 	for _, filePatch := range patch.FilePatches() {
 		fromFile, toFile := filePatch.Files()
 		if toFile == nil {
-			if err := DeleteResource(k8s, repoDir+"/"+fromFile.Path()); err != nil {
+			if err := deleteResource(k8s, repoDir+"/"+fromFile.Path()); err != nil {
 				klog.ErrorS(err, "unable to delete resource during rollback")
 				return err
 			}
-			klog.Infof("Deleted file at %s", repoDir+"/"+fromFile.Path())
+			klog.V(2).Infof("(Rollback) Deleted file at %s", repoDir+"/"+fromFile.Path())
 		}
 	}
 	return nil
 }
 
-func createUpdatePatch(repoDir string, patch *object.Patch, k8s *Kubernetes) error {
+func doCreateUpdatePatch(repoDir string, patch *object.Patch, k8s *Kubernetes) error {
 	for _, filePatch := range patch.FilePatches() {
 		_, toFile := filePatch.Files()
 		if toFile != nil {
-			if err := CreateOrUpdateResource(k8s, repoDir+"/"+toFile.Path()); err != nil {
+			if err := createOrUpdateResource(k8s, repoDir+"/"+toFile.Path()); err != nil {
 				klog.ErrorS(err, "unable to create/update new resouce during rollback")
 				return err
 			}
-			klog.Infof("Created/Updated file at %s", repoDir+"/"+toFile.Path())
+			klog.V(2).Infof("(Rollback) Created/Updated file at %s", repoDir+"/"+toFile.Path())
 		}
 	}
 	return nil
 }
 
-func CreateOrUpdateResource(k *Kubernetes, path string) error {
+func createOrUpdateResource(k *Kubernetes, path string) error {
 	apiVersion, kind, err := getMetadata(path)
 	if err != nil {
 		klog.ErrorS(err, "error while retrieving metadata from file")
@@ -169,7 +176,7 @@ func CreateOrUpdateResource(k *Kubernetes, path string) error {
 		resource := &netv1.NetworkPolicy{}
 		getResource(resource, path)
 		if err := k.CreateOrUpdateK8sPolicy(resource); err != nil {
-			klog.ErrorS(err, "unable to create/update K8s network policy")
+			klog.ErrorS(err, "unable to create/update K8s network policy during rollback")
 			return err
 		}
 	} else if apiVersion == "crd.antrea.io/v1alpha1" {
@@ -206,7 +213,7 @@ func CreateOrUpdateResource(k *Kubernetes, path string) error {
 	return nil
 }
 
-func DeleteResource(k *Kubernetes, path string) error {
+func deleteResource(k *Kubernetes, path string) error {
 	apiVersion, kind, err := getMetadata(path)
 	if err != nil {
 		klog.ErrorS(err, "error while retrieving metadata from file")
@@ -216,7 +223,7 @@ func DeleteResource(k *Kubernetes, path string) error {
 		resource := &netv1.NetworkPolicy{}
 		getResource(resource, path)
 		if err := k.DeleteK8sPolicy(resource); err != nil {
-			klog.ErrorS(err, "unable to delete K8s network policy")
+			klog.ErrorS(err, "unable to delete K8s network policy during rollback")
 			return err
 		}
 	} else if apiVersion == "crd.antrea.io/v1alpha1" {

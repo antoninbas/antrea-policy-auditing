@@ -10,22 +10,22 @@ import (
 	"k8s.io/klog/v2"
 )
 
-func TagCommit(r *git.Repository, commit_sha string, tag string, tagger *object.Signature) error {
+func (cr *CustomRepo) TagCommit(commit_sha string, tag string, tagger *object.Signature) error {
 	hash := plumbing.NewHash(commit_sha)
-	_, err := r.CommitObject(hash)
+	_, err := cr.Repo.CommitObject(hash)
 	if err != nil {
 		klog.ErrorS(err, "Unable to get commit object")
 		return err
 	}
-	if err = setTag(r, hash, tag, tagger); err != nil {
+	if err = setTag(cr.Repo, hash, tag, tagger); err != nil {
 		klog.ErrorS(err, "Unable to create tag")
 		return err
 	}
 	return nil
 }
 
-func RemoveTag(r *git.Repository, tag string) error {
-	if err := r.DeleteTag(tag); err != nil {
+func (cr *CustomRepo) RemoveTag(tag string) error {
+	if err := cr.Repo.DeleteTag(tag); err != nil {
 		klog.ErrorS(err, "Unable to delete tag")
 		return err
 	}

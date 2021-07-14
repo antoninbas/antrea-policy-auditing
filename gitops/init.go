@@ -39,8 +39,8 @@ func SetupRepo(k *Kubernetes, mode string, dir string) (*CustomRepo, error) {
 	}
 	r, err := createRepo(k, mode, &cr.Dir, storer, cr.Fs)
 	if err == git.ErrRepositoryAlreadyExists {
-		klog.V(2).InfoS("network policy respository already exists - skipping initialization")
-		return nil, err
+		klog.V(2).InfoS("network policy repository already exists - skipping initialization")
+		return nil, nil
 	} else if err != nil {
 		klog.ErrorS(err, "unable to create network policy repository")
 		return nil, err
@@ -64,7 +64,7 @@ func createRepo(k *Kubernetes, mode string, dir *string, storer *memory.Storage,
 	if mode == "mem" {
 		r, err := git.Init(storer, fs)
 		if err == git.ErrRepositoryAlreadyExists {
-			klog.InfoS("network policy respository already exists - skipping initialization")
+			klog.InfoS("network policy repository already exists - skipping initialization")
 			return nil, err
 		} else if err != nil {
 			klog.ErrorS(err, "unable to initialize git repo")
