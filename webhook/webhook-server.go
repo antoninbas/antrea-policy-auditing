@@ -24,6 +24,11 @@ type filters struct {
 	FileName string    `json:"filename"`
 }
 
+type rollbackRequest struct {
+	tag string
+	//TargetCommit *object.Commit `json:"commit"`
+}
+
 func events(w http.ResponseWriter, r *http.Request, cr *gitops.CustomRepo) {
 	defer r.Body.Close()
 	body, err := ioutil.ReadAll(r.Body)
@@ -32,11 +37,13 @@ func events(w http.ResponseWriter, r *http.Request, cr *gitops.CustomRepo) {
 		w.WriteHeader(http.StatusBadRequest)
 	}
 	klog.V(3).Infof("Audit received: %s", string(body))
-	if err := cr.HandleEventList(body); err.Error() == "rollback-in-progress" {
-		w.WriteHeader(http.StatusServiceUnavailable)
-	} else if err != nil {
-		klog.ErrorS(err, "unable to process audit event list")
-		w.WriteHeader(http.StatusBadRequest)
+	if err := cr.HandleEventList(body); err != nil {
+		if err.Error() == "rollback-in-progress" {
+			w.WriteHeader(http.StatusServiceUnavailable)
+		} else {
+			klog.ErrorS(err, "unable to process audit event list")
+			w.WriteHeader(http.StatusInternalServerError)
+		}
 	}
 }
 
@@ -78,12 +85,34 @@ func changes(w http.ResponseWriter, r *http.Request, cr *gitops.CustomRepo) {
 	}
 }
 
+func rollback(w http.ResponseWriter, r *http.Request, cr *gitops.CustomRepo) {
+	defer r.Body.Close()
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		klog.ErrorS(err, "unable to read audit body")
+		w.WriteHeader(http.StatusBadRequest)
+	}
+	rollbackRequest := rollbackRequest{}
+	if err := json.Unmarshal(body, &rollbackRequest); err != nil {
+		klog.ErrorS(err, "unable to marshal request body")
+		w.WriteHeader(http.StatusBadRequest)
+	}
+	commit, _ := cr.TagToCommit(rollbackRequest.tag)
+	if err := cr.RollbackRepo(commit); err != nil {
+		klog.ErrorS(err, "failed to rollback repo")
+		w.WriteHeader(http.StatusInternalServerError)
+	}
+}
+
 func ReceiveEvents(dir string, port string, cr *gitops.CustomRepo) error {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		events(w, r, cr)
 	})
 	http.HandleFunc("/changes", func(w http.ResponseWriter, r *http.Request) {
 		changes(w, r, cr)
+	})
+	http.HandleFunc("/rollback", func(w http.ResponseWriter, r *http.Request) {
+		rollback(w, r, cr)
 	})
 	klog.V(2).Infof("Audit webhook server started, listening on port %s", port)
 	if err := http.ListenAndServe(":"+string(port), nil); err != nil {
