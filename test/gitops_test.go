@@ -238,7 +238,6 @@ func TestRollback(t *testing.T) {
 	assert.Equal(t, "Rollback to commit " + h.Hash().String(), rollbackCommit.Message,
 		"Error (TestRollback): rollback commit not found, head commit message mismatch")
 
-
 	// Check cluster state
 	k8sPolicies, err := k8s.GetK8sPolicies()
 	if err != nil {
