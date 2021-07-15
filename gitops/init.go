@@ -17,14 +17,14 @@ import (
 )
 
 type CustomRepo struct {
-	Repo  *git.Repository
-	K8s *Kubernetes
-	RollbackMode bool
-	StorageMode  string
+	Repo           *git.Repository
+	K8s            *Kubernetes
+	RollbackMode   bool
+	StorageMode    string
 	ServiceAccount string
-	Dir   string
-	Fs    billy.Filesystem
-	Mutex sync.Mutex
+	Dir            string
+	Fs             billy.Filesystem
+	Mutex          sync.Mutex
 }
 
 func SetupRepo(k *Kubernetes, mode string, dir string) (*CustomRepo, error) {
@@ -35,25 +35,27 @@ func SetupRepo(k *Kubernetes, mode string, dir string) (*CustomRepo, error) {
 	}
 	storer := memory.NewStorage()
 	fs := memfs.New()
-	svcAcct := "system:serviceaccount:" + GetAuditPodNamespace() + GetAuditServiceAccount() 
+	svcAcct := "system:serviceaccount:" + GetAuditPodNamespace() + GetAuditServiceAccount()
 	cr := CustomRepo{
-		K8s: k,
-		RollbackMode: false,
-		StorageMode: mode,
+		K8s:            k,
+		RollbackMode:   false,
+		StorageMode:    mode,
 		ServiceAccount: svcAcct,
-		Dir:  dir,
-		Fs:   fs,
+		Dir:            dir,
+		Fs:             fs,
 	}
+	cr.Mutex.Lock()
+	defer cr.Mutex.Unlock()
 	r, err := cr.createRepo(storer)
+	// TODO: figure how to obtain old filesystem for in mem case
 	if err == git.ErrRepositoryAlreadyExists {
 		klog.V(2).InfoS("network policy repository already exists - skipping initialization")
-		return nil, nil
+		cr.Repo = r
+		return &cr, nil
 	} else if err != nil {
 		klog.ErrorS(err, "unable to create network policy repository")
 		return nil, err
 	}
-	cr.Mutex.Lock()
-	defer cr.Mutex.Unlock()
 	cr.Repo = r
 	if err := cr.addResources(); err != nil {
 		klog.ErrorS(err, "unable to add resource yamls to repository")
@@ -90,7 +92,13 @@ func (cr *CustomRepo) createRepo(storer *memory.Storage) (*git.Repository, error
 	cr.Dir += "/network-policy-repository"
 	r, err := git.PlainInit(cr.Dir, false)
 	if err == git.ErrRepositoryAlreadyExists {
-		return nil, err
+		klog.V(2).InfoS("network policy repository already exists - skipping initialization")
+		r, err := git.PlainOpen(cr.Dir)
+		if err != nil {
+			klog.ErrorS(err, "unable to retrieve existing repository")
+			return nil, err
+		}
+		return r, git.ErrRepositoryAlreadyExists
 	} else if err != nil {
 		klog.ErrorS(err, "unable to initialize git repo")
 		return nil, err
