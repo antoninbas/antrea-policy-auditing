@@ -21,10 +21,10 @@ func (cr *CustomRepo) FilterCommits(author *string, since *time.Time, until *tim
     }
 
     logopts.From = ref.Hash()
-    if !(since == nil) {
+    if !since.IsZero() && since != nil {
         logopts.Since = since
     }
-    if !(until == nil) {
+    if !since.IsZero() && until != nil {
         logopts.Until = until
     }
     if !(*policyResourceName == "") {
