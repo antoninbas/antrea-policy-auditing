@@ -25,10 +25,9 @@ func (cr *CustomRepo) HandleEventList(jsonstring []byte) error {
 	cr.Mutex.Lock()
 	defer cr.Mutex.Unlock()
 	for _, event := range eventList.Items {
-		// TODO: compute the service account once in init and store in state struct
 		if event.Stage != "ResponseComplete" ||
 			event.ResponseStatus.Status == "Failure" ||
-			event.User.Username == "system:serviceaccount:default:antrea-audit" {
+			event.User.Username == cr.ServiceAccount {
 			klog.V(4).InfoS("Audit event skipped (audit Stage != ResponseComplete, audit ResponseStatus != Success, or audit produced by rollback)")
 			continue
 		}

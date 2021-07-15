@@ -19,8 +19,9 @@ import (
 type CustomRepo struct {
 	Repo  *git.Repository
 	K8s *Kubernetes
-	StorageMode  string
 	RollbackMode bool
+	StorageMode  string
+	ServiceAccount string
 	Dir   string
 	Fs    billy.Filesystem
 	Mutex sync.Mutex
@@ -34,10 +35,12 @@ func SetupRepo(k *Kubernetes, mode string, dir string) (*CustomRepo, error) {
 	}
 	storer := memory.NewStorage()
 	fs := memfs.New()
+	svcAcct := "system:serviceaccount:" + GetAuditPodNamespace() + GetAuditServiceAccount() 
 	cr := CustomRepo{
 		K8s: k,
-		StorageMode: mode,
 		RollbackMode: false,
+		StorageMode: mode,
+		ServiceAccount: svcAcct,
 		Dir:  dir,
 		Fs:   fs,
 	}

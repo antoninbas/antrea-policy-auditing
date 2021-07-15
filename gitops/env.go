@@ -19,7 +19,7 @@ func GetAuditServiceAccount() string {
 	return svcAcctName
 }
 
-func GetPodNamespace() string {
+func GetAuditPodNamespace() string {
 	podNamespace := os.Getenv(podNamespaceEnvKey)
 	if podNamespace == "" {
 		klog.Warningf("Environment variable %s not found", podNamespaceEnvKey)
