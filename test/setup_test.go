@@ -427,10 +427,6 @@ func runSetupTest(t *testing.T, k8s *gitops.Kubernetes, expPaths []string, expYa
 	if err != nil {
 		t.Errorf("Error (TestSetupRepo): unable to set up repo")
 	}
-	files, err := cr.Fs.ReadDir("/antrea-policies/nsA")
-	for _, file := range files {
-		fmt.Println(file.Name())
-	}
 	for i, path := range expPaths {
 		file, err := cr.Fs.Open(path)
 		if err != nil {
