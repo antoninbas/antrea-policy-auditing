@@ -9,10 +9,3 @@ LABEL description="The docker image for the auditing system"
 ENV USER root
 COPY --from=audit-build /antrea/antrea-audit /
 ENTRYPOINT ["/antrea-audit", "-v", "2"]
-
-# FROM scratch
-# LABEL maintainer="Antrea <projectantrea-dev@googlegroups.com>"
-# LABEL description="The docker image for the auditing system"
-# ENV USER root
-# COPY --from=audit-build /antrea/antrea-audit /
-# ENTRYPOINT ["/antrea-audit"]
