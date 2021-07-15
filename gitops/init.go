@@ -47,7 +47,6 @@ func SetupRepo(k *Kubernetes, mode string, dir string) (*CustomRepo, error) {
 	cr.Mutex.Lock()
 	defer cr.Mutex.Unlock()
 	r, err := cr.createRepo(storer)
-	// TODO: figure how to obtain old filesystem for in mem case
 	if err == git.ErrRepositoryAlreadyExists {
 		klog.V(2).InfoS("network policy repository already exists - skipping initialization")
 		cr.Repo = r
