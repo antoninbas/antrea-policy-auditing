@@ -1,6 +1,7 @@
 package test
 
 import (
+	"fmt"
 	"testing"
 
 	"antrea-audit/gitops"
@@ -33,6 +34,7 @@ var (
 	allowAction = crdv1alpha1.RuleActionAllow
 	Np1         = test_resource{
 		inputResource: &networkingv1.NetworkPolicy{
+			TypeMeta: metav1.TypeMeta{Kind: "NetworkPolicy", APIVersion: "networking.k8s.io/v1"},
 			ObjectMeta: metav1.ObjectMeta{Namespace: "nsA", Name: "npA", UID: "uidA"},
 			Spec: networkingv1.NetworkPolicySpec{
 				PodSelector: metav1.LabelSelector{},
@@ -56,8 +58,9 @@ spec:
   - Ingress
 `,
 	}
-	np2 = test_resource{
+	Np2 = test_resource{
 		inputResource: &networkingv1.NetworkPolicy{
+			TypeMeta: metav1.TypeMeta{Kind: "NetworkPolicy", APIVersion: "networking.k8s.io/v1"},
 			ObjectMeta: metav1.ObjectMeta{Namespace: "nsA", Name: "npB", UID: "uidB"},
 			Spec: networkingv1.NetworkPolicySpec{
 				PodSelector: metav1.LabelSelector{},
@@ -81,8 +84,9 @@ spec:
   - Egress
 `,
 	}
-	np3 = test_resource{
+	Np3 = test_resource{
 		inputResource: &networkingv1.NetworkPolicy{
+			TypeMeta: metav1.TypeMeta{Kind: "NetworkPolicy", APIVersion: "networking.k8s.io/v1"},
 			ObjectMeta: metav1.ObjectMeta{Namespace: "nsB", Name: "npC", UID: "uidC"},
 			Spec: networkingv1.NetworkPolicySpec{
 				PodSelector: selectorA,
@@ -154,7 +158,8 @@ spec:
 	}
 	Anp1 = test_resource{
 		inputResource: &crdv1alpha1.NetworkPolicy{
-			ObjectMeta: metav1.ObjectMeta{Namespace: "nsA", Name: "npA", UID: "uidA"},
+			TypeMeta: metav1.TypeMeta{Kind: "NetworkPolicy", APIVersion: "crd.antrea.io/v1alpha1"},
+			ObjectMeta: metav1.ObjectMeta{Namespace: "nsA", Name: "anpA", UID: "uidC"},
 			Spec: crdv1alpha1.NetworkPolicySpec{
 				AppliedTo: []crdv1alpha1.NetworkPolicyPeer{
 					{PodSelector: &selectorA},
@@ -194,13 +199,13 @@ spec:
 				},
 			},
 		},
-		expPath: "/antrea-policies/nsA/npA.yaml",
+		expPath: "/antrea-policies/nsA/anpA.yaml",
 		expYaml: 
 `apiVersion: crd.antrea.io/v1alpha1
 kind: NetworkPolicy
 metadata:
   creationTimestamp: null
-  name: npA
+  name: anpA
   namespace: nsA
 spec:
   appliedTo:
@@ -243,9 +248,10 @@ status:
   phase: ""
 `,
 	}
-	acnp1 = test_resource{
+	Acnp1 = test_resource{
 		inputResource: &crdv1alpha1.ClusterNetworkPolicy{
-			ObjectMeta: metav1.ObjectMeta{Name: "cnpA", UID: "uidA"},
+			TypeMeta: metav1.TypeMeta{Kind: "ClusterNetworkPolicy", APIVersion: "crd.antrea.io/v1alpha1"},
+			ObjectMeta: metav1.ObjectMeta{Name: "cnpA", UID: "uidD"},
 			Spec: crdv1alpha1.ClusterNetworkPolicySpec{
 				AppliedTo: []crdv1alpha1.NetworkPolicyPeer{
 					{PodSelector: &selectorA},
@@ -333,8 +339,9 @@ status:
   phase: ""
 `,
 	}
-	tier1 = test_resource{
+	Tier1 = test_resource{
 		inputResource: &crdv1alpha1.Tier{
+			TypeMeta: metav1.TypeMeta{Kind: "Tier", APIVersion: "crd.antrea.io/v1alpha1"},
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "TierA",
 			},
@@ -370,23 +377,23 @@ func TestSetupRepo(t *testing.T) {
 		},
 		{
 			name:              "basic-test",
-			inputK8sResources: []test_resource{Np1, np2, np3},
-			inputCRDResources: []test_resource{Anp1, acnp1},
+			inputK8sResources: []test_resource{Np1, Np2, Np3},
+			inputCRDResources: []test_resource{Anp1, Acnp1},
 		},
 		{
 			name:              "empty-K8s-test",
 			inputK8sResources: []test_resource{},
-			inputCRDResources: []test_resource{Anp1, acnp1},
+			inputCRDResources: []test_resource{Anp1, Acnp1},
 		},
 		{
 			name:              "empty-CRDs-test",
-			inputK8sResources: []test_resource{Np1, np2},
+			inputK8sResources: []test_resource{Np1, Np2},
 			inputCRDResources: []test_resource{},
 		},
 		{
 			name:              "tiers-test",
-			inputK8sResources: []test_resource{Np1, np2},
-			inputCRDResources: []test_resource{Anp1, tier1},
+			inputK8sResources: []test_resource{Np1, Np2},
+			inputCRDResources: []test_resource{Anp1, Tier1},
 		},
 	}
 	for _, test := range tests {
@@ -420,9 +427,14 @@ func runSetupTest(t *testing.T, k8s *gitops.Kubernetes, expPaths []string, expYa
 	if err != nil {
 		t.Errorf("Error (TestSetupRepo): unable to set up repo")
 	}
+	files, err := cr.Fs.ReadDir("/antrea-policies/nsA")
+	for _, file := range files {
+		fmt.Println(file.Name())
+	}
 	for i, path := range expPaths {
 		file, err := cr.Fs.Open(path)
 		if err != nil {
+			fmt.Println(path)
 			t.Errorf("Error (TestSetupRepo): unable to open file")
 		}
 		fstat, _ := cr.Fs.Stat(path)

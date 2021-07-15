@@ -75,14 +75,9 @@ func (cr *CustomRepo) RollbackRepo(targetCommit *object.Commit) error {
 		klog.ErrorS(err, "unable to get patch between commits")
 		return err
 	}
-	k8s, err := NewKubernetes()
-	if err != nil {
-		klog.ErrorS(err, "error while setting up new kube clients")
-		return err
-	}
 
 	// Must do cluster delete requests before resetting in order to be able to read metadata from files
-	if err := doDeletePatch(cr.Dir, patch, k8s); err != nil {
+	if err := cr.doDeletePatch(patch); err != nil {
 		klog.ErrorS(err, "could not patch cluster to old commit state (delete phase)")
 		return err
 	}
@@ -100,7 +95,7 @@ func (cr *CustomRepo) RollbackRepo(targetCommit *object.Commit) error {
 	}
 
 	// Must similarly do cluster update/create requests after resetting
-	if err := doCreateUpdatePatch(cr.Dir, patch, k8s); err != nil {
+	if err := cr.doCreateUpdatePatch(patch); err != nil {
 		klog.ErrorS(err, "could not patch cluster to old commit state (create/update phase)")
 		return err
 	}
@@ -138,44 +133,44 @@ func resetWorktree(w *git.Worktree, hash plumbing.Hash, resetMode bool) error {
 	return nil
 }
 
-func doDeletePatch(repoDir string, patch *object.Patch, k8s *Kubernetes) error {
+func (cr *CustomRepo) doDeletePatch(patch *object.Patch) error {
 	for _, filePatch := range patch.FilePatches() {
 		fromFile, toFile := filePatch.Files()
 		if toFile == nil {
-			if err := deleteResource(k8s, repoDir+"/"+fromFile.Path()); err != nil {
+			if err := cr.deleteResourceByPath(cr.Dir+"/"+fromFile.Path()); err != nil {
 				klog.ErrorS(err, "unable to delete resource during rollback")
 				return err
 			}
-			klog.V(2).Infof("(Rollback) Deleted file at %s", repoDir+"/"+fromFile.Path())
+			klog.V(2).Infof("(Rollback) Deleted file at %s", cr.Dir+"/"+fromFile.Path())
 		}
 	}
 	return nil
 }
 
-func doCreateUpdatePatch(repoDir string, patch *object.Patch, k8s *Kubernetes) error {
+func (cr *CustomRepo) doCreateUpdatePatch(patch *object.Patch) error {
 	for _, filePatch := range patch.FilePatches() {
 		_, toFile := filePatch.Files()
 		if toFile != nil {
-			if err := createOrUpdateResource(k8s, repoDir+"/"+toFile.Path()); err != nil {
+			if err := cr.createOrUpdateResourceByPath(cr.Dir+"/"+toFile.Path()); err != nil {
 				klog.ErrorS(err, "unable to create/update new resouce during rollback")
 				return err
 			}
-			klog.V(2).Infof("(Rollback) Created/Updated file at %s", repoDir+"/"+toFile.Path())
+			klog.V(2).Infof("(Rollback) Created/Updated file at %s", cr.Dir+"/"+toFile.Path())
 		}
 	}
 	return nil
 }
 
-func createOrUpdateResource(k *Kubernetes, path string) error {
-	apiVersion, kind, err := getMetadata(path)
+func (cr *CustomRepo) createOrUpdateResourceByPath(path string) error {
+	apiVersion, kind, err := cr.getMetadata(path)
 	if err != nil {
 		klog.ErrorS(err, "error while retrieving metadata from file")
 		return err
 	}
 	if apiVersion == "networking.k8s.io/v1" {
 		resource := &netv1.NetworkPolicy{}
-		getResource(resource, path)
-		if err := k.CreateOrUpdateK8sPolicy(resource); err != nil {
+		cr.getResource(resource, path)
+		if err := cr.K8s.CreateOrUpdateK8sPolicy(resource); err != nil {
 			klog.ErrorS(err, "unable to create/update K8s network policy during rollback")
 			return err
 		}
@@ -183,46 +178,46 @@ func createOrUpdateResource(k *Kubernetes, path string) error {
 		switch kind {
 		case "NetworkPolicy":
 			resource := &v1alpha1.NetworkPolicy{}
-			getResource(resource, path)
-			if err := k.CreateOrUpdateAntreaPolicy(resource); err != nil {
+			cr.getResource(resource, path)
+			if err := cr.K8s.CreateOrUpdateAntreaPolicy(resource); err != nil {
 				klog.ErrorS(err, "unable to create/update Antrea network policy during rollback")
 				return err
 			}
 		case "ClusterNetworkPolicy":
 			resource := &v1alpha1.ClusterNetworkPolicy{}
-			getResource(resource, path)
-			if err := k.CreateOrUpdateAntreaClusterPolicy(resource); err != nil {
+			cr.getResource(resource, path)
+			if err := cr.K8s.CreateOrUpdateAntreaClusterPolicy(resource); err != nil {
 				klog.ErrorS(err, "unable to create/update Antrea cluster network policy during rollback")
 				return err
 			}
 		case "Tier":
 			resource := &v1alpha1.Tier{}
-			getResource(resource, path)
-			if err := k.CreateOrUpdateAntreaTier(resource); err != nil {
+			cr.getResource(resource, path)
+			if err := cr.K8s.CreateOrUpdateAntreaTier(resource); err != nil {
 				klog.ErrorS(err, "unable to create/update Antrea tier during rollback")
 				return err
 			}
 		default:
-			klog.ErrorS(err, "unknown kind found")
+			klog.ErrorS(err, "unknown kind found", "kind", kind)
 			return err
 		}
 	} else {
-		klog.ErrorS(err, "unknown apiVersion found")
+		klog.ErrorS(err, "unknown apiVersion found", "version", apiVersion)
 		return err
 	}
 	return nil
 }
 
-func deleteResource(k *Kubernetes, path string) error {
-	apiVersion, kind, err := getMetadata(path)
+func (cr *CustomRepo) deleteResourceByPath(path string) error {
+	apiVersion, kind, err := cr.getMetadata(path)
 	if err != nil {
 		klog.ErrorS(err, "error while retrieving metadata from file")
 		return err
 	}
 	if apiVersion == "networking.k8s.io/v1" {
 		resource := &netv1.NetworkPolicy{}
-		getResource(resource, path)
-		if err := k.DeleteK8sPolicy(resource); err != nil {
+		cr.getResource(resource, path)
+		if err := cr.K8s.DeleteK8sPolicy(resource); err != nil {
 			klog.ErrorS(err, "unable to delete K8s network policy during rollback")
 			return err
 		}
@@ -230,42 +225,50 @@ func deleteResource(k *Kubernetes, path string) error {
 		switch kind {
 		case "NetworkPolicy":
 			resource := &v1alpha1.NetworkPolicy{}
-			getResource(resource, path)
-			if err := k.DeleteAntreaPolicy(resource); err != nil {
+			cr.getResource(resource, path)
+			if err := cr.K8s.DeleteAntreaPolicy(resource); err != nil {
 				klog.ErrorS(err, "unable to delete Antrea network policy during rollback")
 				return err
 			}
 		case "ClusterNetworkPolicy":
 			resource := &v1alpha1.ClusterNetworkPolicy{}
-			getResource(resource, path)
-			if err := k.DeleteAntreaClusterPolicy(resource); err != nil {
+			cr.getResource(resource, path)
+			if err := cr.K8s.DeleteAntreaClusterPolicy(resource); err != nil {
 				klog.ErrorS(err, "unable to delete Antrea cluster network policy during rollback")
 				return err
 			}
 		case "Tier":
 			resource := &v1alpha1.Tier{}
-			getResource(resource, path)
-			if err := k.DeleteAntreaTier(resource); err != nil {
+			cr.getResource(resource, path)
+			if err := cr.K8s.DeleteAntreaTier(resource); err != nil {
 				klog.ErrorS(err, "unable to delete Antrea tier during rollback")
 				return err
 			}
 		default:
-			klog.ErrorS(err, "unknown resource kind found")
+			klog.ErrorS(err, "unknown resource kind found", "kind", kind)
 			return err
 		}
 	} else {
-		klog.ErrorS(err, "unknown apiVersion found")
+		klog.ErrorS(err, "unknown apiVersion found", "version", apiVersion)
 		return err
 	}
 	return nil
 }
 
-func getMetadata(path string) (string, string, error) {
+func (cr *CustomRepo) getMetadata(path string) (string, string, error) {
 	meta := metav1.TypeMeta{}
-	y, err := ioutil.ReadFile(path)
-	if err != nil {
-		klog.ErrorS(err, "error reading file")
-		return "", "", err
+	var y []byte
+	if cr.Mode == "disk" {
+		y, _ = ioutil.ReadFile(path)
+	} else {
+		fstat, _ := cr.Fs.Stat(path)
+		y = make([]byte, fstat.Size())
+		f, err := cr.Fs.Open(path)
+		if err != nil {
+			klog.ErrorS(err, "error opening file")
+			return "", "", err
+		}
+		f.Read(y)
 	}
 	j, err := yaml.YAMLToJSON(y)
 	if err != nil {
@@ -279,11 +282,19 @@ func getMetadata(path string) (string, string, error) {
 	return meta.APIVersion, meta.Kind, nil
 }
 
-func getResource(resource runtime.Object, path string) {
-	y, err := ioutil.ReadFile(path)
-	if err != nil {
-		klog.ErrorS(err, "error reading file")
-		return
+func (cr *CustomRepo) getResource(resource runtime.Object, path string) {
+	var y []byte
+	if cr.Mode == "disk" {
+		y, _ = ioutil.ReadFile(path)
+	} else {
+		fstat, _ := cr.Fs.Stat(path)
+		y = make([]byte, fstat.Size())
+		f, err := cr.Fs.Open(path)
+		if err != nil {
+			klog.ErrorS(err, "error opening file")
+			return
+		}
+		f.Read(y)
 	}
 	j, err := yaml.YAMLToJSON(y)
 	if err != nil {

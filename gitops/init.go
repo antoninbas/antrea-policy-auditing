@@ -18,6 +18,7 @@ import (
 
 type CustomRepo struct {
 	Repo  *git.Repository
+	K8s *Kubernetes
 	Mode  string
 	Dir   string
 	Fs    billy.Filesystem
@@ -33,11 +34,12 @@ func SetupRepo(k *Kubernetes, mode string, dir string) (*CustomRepo, error) {
 	storer := memory.NewStorage()
 	fs := memfs.New()
 	cr := CustomRepo{
+		K8s: k,
 		Mode: mode,
 		Dir:  dir,
 		Fs:   fs,
 	}
-	r, err := createRepo(k, mode, &cr.Dir, storer, cr.Fs)
+	r, err := createRepo(cr.K8s, mode, &cr.Dir, storer, cr.Fs)
 	if err == git.ErrRepositoryAlreadyExists {
 		klog.V(2).InfoS("network policy repository already exists - skipping initialization")
 		return nil, nil
@@ -48,7 +50,7 @@ func SetupRepo(k *Kubernetes, mode string, dir string) (*CustomRepo, error) {
 	cr.Mutex.Lock()
 	defer cr.Mutex.Unlock()
 	cr.Repo = r
-	if err := addResources(k, mode, cr.Dir, cr.Fs); err != nil {
+	if err := addResources(cr.K8s, mode, cr.Dir, cr.Fs); err != nil {
 		klog.ErrorS(err, "unable to add resource yamls to repository")
 		return nil, err
 	}
@@ -64,7 +66,7 @@ func createRepo(k *Kubernetes, mode string, dir *string, storer *memory.Storage,
 	if mode == "mem" {
 		r, err := git.Init(storer, fs)
 		if err == git.ErrRepositoryAlreadyExists {
-			klog.InfoS("network policy repository already exists - skipping initialization")
+			klog.V(2).InfoS("network policy repository already exists - skipping initialization")
 			return nil, err
 		} else if err != nil {
 			klog.ErrorS(err, "unable to initialize git repo")
