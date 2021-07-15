@@ -18,7 +18,7 @@ import (
 
 func (cr *CustomRepo) TagToCommit(tag string) (*object.Commit, error) {
 	cr.Mutex.Lock()
-    defer cr.Mutex.Unlock()
+	defer cr.Mutex.Unlock()
 	ref, err := cr.Repo.Tag(tag)
 	if err != nil {
 		klog.ErrorS(err, "could not retrieve tag reference")
@@ -39,7 +39,7 @@ func (cr *CustomRepo) TagToCommit(tag string) (*object.Commit, error) {
 
 func (cr *CustomRepo) HashToCommit(commitSha string) *object.Commit {
 	cr.Mutex.Lock()
-    defer cr.Mutex.Unlock()
+	defer cr.Mutex.Unlock()
 	hash := plumbing.NewHash(commitSha)
 	commit, err := cr.Repo.CommitObject(hash)
 	if err != nil {
@@ -138,7 +138,7 @@ func (cr *CustomRepo) doDeletePatch(patch *object.Patch) error {
 	for _, filePatch := range patch.FilePatches() {
 		fromFile, toFile := filePatch.Files()
 		if toFile == nil {
-			if err := cr.deleteResourceByPath(cr.Dir+"/"+fromFile.Path()); err != nil {
+			if err := cr.deleteResourceByPath(cr.Dir + "/" + fromFile.Path()); err != nil {
 				klog.ErrorS(err, "unable to delete resource during rollback")
 				return err
 			}
@@ -152,7 +152,7 @@ func (cr *CustomRepo) doCreateUpdatePatch(patch *object.Patch) error {
 	for _, filePatch := range patch.FilePatches() {
 		_, toFile := filePatch.Files()
 		if toFile != nil {
-			if err := cr.createOrUpdateResourceByPath(cr.Dir+"/"+toFile.Path()); err != nil {
+			if err := cr.createOrUpdateResourceByPath(cr.Dir + "/" + toFile.Path()); err != nil {
 				klog.ErrorS(err, "unable to create/update new resouce during rollback")
 				return err
 			}

@@ -47,15 +47,14 @@ func SetupRepo(k *Kubernetes, mode string, dir string) (*CustomRepo, error) {
 	cr.Mutex.Lock()
 	defer cr.Mutex.Unlock()
 	r, err := cr.createRepo(storer)
+	cr.Repo = r
 	if err == git.ErrRepositoryAlreadyExists {
 		klog.V(2).InfoS("network policy repository already exists - skipping initialization")
-		cr.Repo = r
 		return &cr, nil
 	} else if err != nil {
 		klog.ErrorS(err, "unable to create network policy repository")
 		return nil, err
 	}
-	cr.Repo = r
 	if err := cr.addResources(); err != nil {
 		klog.ErrorS(err, "unable to add resource yamls to repository")
 		return nil, err
