@@ -97,19 +97,19 @@ func TestHandleEventList(t *testing.T) {
 	jsonStr, err := ioutil.ReadFile("./files/audit-log.txt")
 	if err != nil {
 		fmt.Println(err)
-		t.Errorf("should not have error for correct file")
+		t.Errorf("could not read audit-log file")
 	}
 
 	cr, err := gitops.SetupRepo(k8s, "mem", directory)
 	if err != nil {
 		fmt.Println(err)
-		t.Errorf("should not have error for correct file")
+		t.Errorf("could not set up repo")
 	}
 
 	err = cr.HandleEventList(jsonStr)
 	if err != nil {
 		fmt.Println(err)
-		t.Errorf("should not have error for correct file")
+		t.Errorf("could not handle audit event list")
 	}
 }
 

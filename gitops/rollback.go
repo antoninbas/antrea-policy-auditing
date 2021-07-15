@@ -53,7 +53,7 @@ func (cr *CustomRepo) RollbackRepo(targetCommit *object.Commit) error {
 		targetCommit.Hash.String())
 	cr.Mutex.Lock()
 	defer cr.Mutex.Unlock()
-
+	cr.RollbackMode = true
 	// Get patch between head and target commit
 	w, err := cr.Repo.Worktree()
 	if err != nil {
@@ -108,6 +108,7 @@ func (cr *CustomRepo) RollbackRepo(targetCommit *object.Commit) error {
 		klog.ErrorS(err, "error while committing rollback")
 		return err
 	}
+	cr.RollbackMode = false
 	klog.V(2).Infof("Rollback to commit %s successful", targetCommit.Hash.String())
 	return nil
 }
@@ -258,7 +259,7 @@ func (cr *CustomRepo) deleteResourceByPath(path string) error {
 func (cr *CustomRepo) getMetadata(path string) (string, string, error) {
 	meta := metav1.TypeMeta{}
 	var y []byte
-	if cr.Mode == "disk" {
+	if cr.StorageMode == "disk" {
 		y, _ = ioutil.ReadFile(path)
 	} else {
 		fstat, _ := cr.Fs.Stat(path)
@@ -284,7 +285,7 @@ func (cr *CustomRepo) getMetadata(path string) (string, string, error) {
 
 func (cr *CustomRepo) getResource(resource runtime.Object, path string) {
 	var y []byte
-	if cr.Mode == "disk" {
+	if cr.StorageMode == "disk" {
 		y, _ = ioutil.ReadFile(path)
 	} else {
 		fstat, _ := cr.Fs.Stat(path)

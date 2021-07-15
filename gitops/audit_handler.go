@@ -3,6 +3,7 @@ package gitops
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 
 	"k8s.io/klog/v2"
 
@@ -10,6 +11,10 @@ import (
 )
 
 func (cr *CustomRepo) HandleEventList(jsonstring []byte) error {
+	if cr.RollbackMode {
+		klog.V(2).Infof("Rollback currently in progress, rejecting audit")
+		return fmt.Errorf("rollback-in-progress")
+	}
 	eventList := auditv1.EventList{}
 	jsonstring = bytes.TrimPrefix(jsonstring, []byte("\xef\xbb\xbf"))
 	err := json.Unmarshal(jsonstring, &eventList)

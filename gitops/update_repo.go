@@ -62,7 +62,7 @@ func (cr *CustomRepo) modifyFile(event auditv1.Event) error {
 		return err
 	}
 	path := getAbsRepoPath(cr.Dir, event)
-	if cr.Mode == "disk" {
+	if cr.StorageMode == "disk" {
 		if _, err := os.Stat(path); os.IsNotExist(err) {
 			os.Mkdir(path, 0700)
 		}

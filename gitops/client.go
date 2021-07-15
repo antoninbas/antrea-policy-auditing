@@ -72,16 +72,16 @@ func (k *Kubernetes) GetK8sPolicies() (*networking.NetworkPolicyList, error) {
 func (k *Kubernetes) CreateOrUpdateK8sPolicy(policy *networking.NetworkPolicy) error {
 	_, err := k.ClientSet.NetworkingV1().NetworkPolicies(policy.Namespace).Create(context.TODO(), policy, metav1.CreateOptions{})
 	if err == nil {
-		klog.Infof("created k8s network policy %s in namespace %s", policy.Name, policy.Namespace)
+		klog.V(2).Infof("created k8s network policy %s in namespace %s", policy.Name, policy.Namespace)
 		return nil
 	}
-	klog.Infof("unable to create k8s network policy %s in namespace %s, trying update instead", policy.Name, policy.Namespace)
+	klog.V(2).Infof("unable to create k8s network policy %s in namespace %s, trying update instead", policy.Name, policy.Namespace)
 	_, err = k.ClientSet.NetworkingV1().NetworkPolicies(policy.Namespace).Update(context.TODO(), policy, metav1.UpdateOptions{})
 	if err != nil {
 		klog.Errorf("unable to create/update k8s network policy %s in namespace %s", policy.Name, policy.Namespace)
 		return err
 	}
-	klog.Infof("updated k8s network policy %s in namespace %s", policy.Name, policy.Namespace)
+	klog.V(2).Infof("updated k8s network policy %s in namespace %s", policy.Name, policy.Namespace)
 	return nil
 }
 
@@ -91,7 +91,7 @@ func (k *Kubernetes) DeleteK8sPolicy(policy *networking.NetworkPolicy) error {
 		klog.Errorf("unable to delete k8s network policy %s in namespace %s", policy.Name, policy.Namespace)
 		return err
 	}
-	klog.Infof("deleted k8s network policy %s in namespace %s", policy.Name, policy.Namespace)
+	klog.V(2).Infof("deleted k8s network policy %s in namespace %s", policy.Name, policy.Namespace)
 	return nil
 }
 
@@ -107,16 +107,16 @@ func (k *Kubernetes) GetAntreaPolicies() (*v1alpha1.NetworkPolicyList, error) {
 func (k *Kubernetes) CreateOrUpdateAntreaPolicy(policy *v1alpha1.NetworkPolicy) error {
 	_, err := k.CrdClient.CrdV1alpha1().NetworkPolicies(policy.Namespace).Create(context.TODO(), policy, metav1.CreateOptions{})
 	if err == nil {
-		klog.Infof("created antrea network policy %s in namespace %s", policy.Name, policy.Namespace)
+		klog.V(2).Infof("created antrea network policy %s in namespace %s", policy.Name, policy.Namespace)
 		return nil
 	}
-	klog.Infof("unable to create antrea network policy %s in namespace %s, trying update instead", policy.Name, policy.Namespace)
+	klog.V(2).Infof("unable to create antrea network policy %s in namespace %s, trying update instead", policy.Name, policy.Namespace)
 	_, err = k.CrdClient.CrdV1alpha1().NetworkPolicies(policy.Namespace).Update(context.TODO(), policy, metav1.UpdateOptions{})
 	if err != nil {
 		klog.Errorf("unable to create/update antrea network policy %s in namespace %s", policy.Name, policy.Namespace)
 		return err
 	}
-	klog.Infof("updated antrea network policy %s in namespace %s", policy.Name, policy.Namespace)
+	klog.V(2).Infof("updated antrea network policy %s in namespace %s", policy.Name, policy.Namespace)
 	return nil
 }
 
@@ -126,7 +126,7 @@ func (k *Kubernetes) DeleteAntreaPolicy(policy *v1alpha1.NetworkPolicy) error {
 		klog.Errorf("unable to delete antrea network policy %s in namespace %s", policy.Name, policy.Namespace)
 		return err
 	}
-	klog.Infof("deleted antrea network policy %s in namespace %s", policy.Name, policy.Namespace)
+	klog.V(2).Infof("deleted antrea network policy %s in namespace %s", policy.Name, policy.Namespace)
 	return nil
 }
 
@@ -142,16 +142,16 @@ func (k *Kubernetes) GetAntreaClusterPolicies() (*v1alpha1.ClusterNetworkPolicyL
 func (k *Kubernetes) CreateOrUpdateAntreaClusterPolicy(policy *v1alpha1.ClusterNetworkPolicy) error {
 	_, err := k.CrdClient.CrdV1alpha1().ClusterNetworkPolicies().Create(context.TODO(), policy, metav1.CreateOptions{})
 	if err == nil {
-		klog.Infof("created antrea cluster network policy %s", policy.Name)
+		klog.V(2).Infof("created antrea cluster network policy %s", policy.Name)
 		return nil
 	}
-	klog.Infof("unable to create antrea cluster network policy %s, trying update instead", policy.Name)
+	klog.V(2).Infof("unable to create antrea cluster network policy %s, trying update instead", policy.Name)
 	_, err = k.CrdClient.CrdV1alpha1().ClusterNetworkPolicies().Update(context.TODO(), policy, metav1.UpdateOptions{})
 	if err != nil {
 		klog.Errorf("unable to create/update antrea cluster network policy %s", policy.Name)
 		return err
 	}
-	klog.Infof("updated antrea cluster network policy %s", policy.Name)
+	klog.V(2).Infof("updated antrea cluster network policy %s", policy.Name)
 	return nil
 }
 
@@ -161,7 +161,7 @@ func (k *Kubernetes) DeleteAntreaClusterPolicy(policy *v1alpha1.ClusterNetworkPo
 		klog.Errorf("unable to delete antrea cluster network policy %s", policy.Name)
 		return err
 	}
-	klog.Infof("deleted antrea cluster network policy %s", policy.Name)
+	klog.V(2).Infof("deleted antrea cluster network policy %s", policy.Name)
 	return nil
 }
 
@@ -177,16 +177,16 @@ func (k *Kubernetes) GetAntreaTiers() (*v1alpha1.TierList, error) {
 func (k *Kubernetes) CreateOrUpdateAntreaTier(tier *v1alpha1.Tier) error {
 	_, err := k.CrdClient.CrdV1alpha1().Tiers().Create(context.TODO(), tier, metav1.CreateOptions{})
 	if err == nil {
-		klog.Infof("created antrea tier %s", tier.Name)
+		klog.V(2).Infof("created antrea tier %s", tier.Name)
 		return nil
 	}
-	klog.Infof("unable to create antrea tier %s, trying update instead", tier.Name)
+	klog.V(2).Infof("unable to create antrea tier %s, trying update instead", tier.Name)
 	_, err = k.CrdClient.CrdV1alpha1().Tiers().Update(context.TODO(), tier, metav1.UpdateOptions{})
 	if err != nil {
 		klog.Errorf("unable to create/update antrea tier %s", tier.Name)
 		return err
 	}
-	klog.Infof("updated antrea tier %s", tier.Name)
+	klog.V(2).Infof("updated antrea tier %s", tier.Name)
 	return nil
 }
 
@@ -196,6 +196,6 @@ func (k *Kubernetes) DeleteAntreaTier(tier *v1alpha1.Tier) error {
 		klog.Errorf("unable to delete antrea tier %s", tier.Name)
 		return err
 	}
-	klog.Infof("deleted antrea tier %s", tier.Name)
+	klog.V(2).Infof("deleted antrea tier %s", tier.Name)
 	return nil
 }

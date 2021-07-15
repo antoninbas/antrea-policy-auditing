@@ -32,7 +32,9 @@ func events(w http.ResponseWriter, r *http.Request, cr *gitops.CustomRepo) {
 		w.WriteHeader(http.StatusBadRequest)
 	}
 	klog.V(3).Infof("Audit received: %s", string(body))
-	if err := cr.HandleEventList(body); err != nil {
+	if err := cr.HandleEventList(body); err.Error() == "rollback-in-progress" {
+		w.WriteHeader(http.StatusServiceUnavailable)
+	} else if err != nil {
 		klog.ErrorS(err, "unable to process audit event list")
 		w.WriteHeader(http.StatusBadRequest)
 	}
@@ -47,7 +49,10 @@ func changes(w http.ResponseWriter, r *http.Request, cr *gitops.CustomRepo) {
 	}
 	klog.V(3).Infof("Filters received: %s", string(body))
 	filts := filters{}
-	err = json.Unmarshal(body, &filts)
+	if err := json.Unmarshal(body, &filts); err != nil {
+		klog.ErrorS(err, "unable to marshal request body")
+		w.WriteHeader(http.StatusBadRequest)
+	}
 	commits, err := cr.FilterCommits(&filts.Author, &filts.Since, &filts.Until, &filts.FileName)
 	if err != nil {
 		klog.ErrorS(err, "unable to process audit event list")
