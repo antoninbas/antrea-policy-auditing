@@ -211,7 +211,6 @@ func TestRollback(t *testing.T) {
 
 	jsonStr, err := ioutil.ReadFile("./files/rollback-log.txt")
 	if err != nil {
-		fmt.Println(err)
 		t.Errorf("could not read rollback-log file")
 	}
 	if err := cr.HandleEventList(jsonStr); err != nil {
@@ -239,11 +238,6 @@ func TestRollback(t *testing.T) {
 	assert.Equal(t, "Rollback to commit " + h.Hash().String(), rollbackCommit.Message,
 		"Error (TestRollback): rollback commit not found, head commit message mismatch")
 
-	log, _ := cr.Repo.Log(&git.LogOptions{})
-	_ = log.ForEach(func(c *object.Commit) error {
-        fmt.Println(c.Message)
-        return nil
-    })
 
 	// Check cluster state
 	k8sPolicies, err := k8s.GetK8sPolicies()
