@@ -85,7 +85,9 @@ func (cr *CustomRepo) createRepo(storer *memory.Storage) (*git.Repository, error
 			klog.ErrorS(err, "unable to retrieve the current working directory")
 			return nil, err
 		}
-		cr.Dir = path
+		if path != "/" {
+			cr.Dir = path
+		}
 	}
 	cr.Dir += "/network-policy-repository"
 	r, err := git.PlainInit(cr.Dir, false)

@@ -11,6 +11,8 @@ import (
 )
 
 func (cr *CustomRepo) HandleEventList(jsonstring []byte) error {
+	cr.Mutex.Lock()
+	defer cr.Mutex.Unlock()
 	if cr.RollbackMode {
 		klog.V(2).Infof("Rollback currently in progress, rejecting audit")
 		return fmt.Errorf("rollback-in-progress")
@@ -22,8 +24,6 @@ func (cr *CustomRepo) HandleEventList(jsonstring []byte) error {
 		klog.ErrorS(err, "unable to unmarshal json into event list struct")
 		return err
 	}
-	cr.Mutex.Lock()
-	defer cr.Mutex.Unlock()
 	for _, event := range eventList.Items {
 		if event.Stage != "ResponseComplete" ||
 			event.ResponseStatus.Status == "Failure" ||
