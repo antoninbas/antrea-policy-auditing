@@ -11,7 +11,7 @@ import (
 
 func processArgs() {
 	flag.StringVar(&portFlag, "p", "8080", "specifies port that audit webhook listens on")
-	flag.StringVar(&dirFlag, "d", "", "directory where resource repository is created")
+	flag.StringVar(&dirFlag, "d", "", "directory where resource repository is created, defaults to current working directory")
 	flag.Parse()
 }
 
