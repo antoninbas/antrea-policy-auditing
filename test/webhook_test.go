@@ -16,11 +16,11 @@ func TestExposeWebhook(t *testing.T) {
 		CrdClient: fakeCRDClient,
 	}
 
-	cr, err := gitops.SetupRepo(k8s, "mem", mt)
+	cr, err := gitops.SetupRepo(k8s, gitops.StorageModeInMemory, mt)
 	if err != nil {
 		fmt.Println(err)
 		t.Errorf("should not have error for correct file")
 	}
 
-    webhook.ReceiveEvents(mt, "8008", cr)
+    webhook.ReceiveEvents("8008", cr)
 }

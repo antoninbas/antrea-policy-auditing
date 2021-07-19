@@ -421,7 +421,7 @@ func TestSetupRepo(t *testing.T) {
 }
 
 func runSetupTest(t *testing.T, k8s *gitops.KubeClients, expPaths []string, expYamls []string) {
-	cr, err := gitops.SetupRepo(k8s, "mem", dir)
+	cr, err := gitops.SetupRepo(k8s, gitops.StorageModeInMemory, dir)
 	if err != nil {
 		t.Errorf("Error (TestSetupRepo): unable to set up repo")
 	}
@@ -445,11 +445,11 @@ func TestRepoDuplicate(t *testing.T) {
 		ClientSet: fakeK8sClient,
 		CrdClient: fakeCRDClient,
 	}
-	_, err := gitops.SetupRepo(k8s, "mem", dir)
+	_, err := gitops.SetupRepo(k8s, gitops.StorageModeInMemory, dir)
 	if err != nil {
 		t.Errorf("Error (TestRepoDuplicate): unable to set up repo for the first time")
 	}
-	_, err = gitops.SetupRepo(k8s, "mem", dir)
+	_, err = gitops.SetupRepo(k8s, gitops.StorageModeInMemory, dir)
 	if err != nil {
 		t.Errorf("Error (TestRepoDuplicate): unable to set up repo for the second time")
 	}

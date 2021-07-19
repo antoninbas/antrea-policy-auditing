@@ -23,7 +23,7 @@ func TestFilterCommits(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error (TestFilterCommits): cannot read audit-log.txt")
 	}
-	cr, err := SetupRepo(k8s, "mem", empty)
+	cr, err := SetupRepo(k8s, StorageModeInMemory, empty)
 	if err != nil {
 		t.Errorf("Error (TestFilterCommits): unable to set up repo for the first time")
 	}

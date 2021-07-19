@@ -11,15 +11,16 @@ import (
 
 func processArgs(portFlag *string, dirFlag *string) {
 	flag.StringVar(portFlag, "p", "8080", "specifies port that audit webhook listens on")
-	flag.StringVar(dirFlag, "d", "", "path to which network policy repository is created, default current working directory")
+	flag.StringVar(dirFlag, "d", "", "directory where resource repository is created")
 	flag.Parse()
 }
 
+var (
+	portFlag string
+	dirFlag  string
+)
+
 func main() {
-	var (
-		portFlag string
-		dirFlag  string
-	)
 	klog.InitFlags(nil)
 	processArgs(&portFlag, &dirFlag)
 	k8s, err := gitops.NewKubernetes()
@@ -27,9 +28,9 @@ func main() {
 		klog.ErrorS(err, "unable to create kube client")
 		return
 	}
-	cr, err := gitops.SetupRepo(k8s, "disk", dirFlag)
+	cr, err := gitops.SetupRepo(k8s, gitops.StorageModeDisk, dirFlag)
 	if err != nil {
-		klog.ErrorS(err, "unable to set up network policy repository")
+		klog.ErrorS(err, "unable to set up resource repository")
 		return
 	}
 	if err := webhook.ReceiveEvents(portFlag, cr); err != nil {

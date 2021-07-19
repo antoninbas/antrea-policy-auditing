@@ -97,7 +97,7 @@ func TestHandleEventList(t *testing.T) {
 		t.Errorf("could not read audit-log file")
 	}
 
-	cr, err := gitops.SetupRepo(k8s, "mem", directory)
+	cr, err := gitops.SetupRepo(k8s, gitops.StorageModeInMemory, directory)
 	if err != nil {
 		fmt.Println(err)
 		t.Errorf("could not set up repo")
@@ -117,7 +117,7 @@ func TestTagging(t *testing.T) {
 		ClientSet: fakeK8sClient,
 		CrdClient: fakeCRDClient,
 	}
-	cr, err := gitops.SetupRepo(k8s, "mem", directory)
+	cr, err := gitops.SetupRepo(k8s, gitops.StorageModeInMemory, directory)
 	if err != nil {
 		t.Errorf("Error (TestTagging): unable to set up repo")
 	}
@@ -174,7 +174,7 @@ func TestRollback(t *testing.T) {
 		ClientSet: fakeK8sClient,
 		CrdClient: fakeCRDClient,
 	}
-	cr, err := gitops.SetupRepo(k8s, "mem", directory)
+	cr, err := gitops.SetupRepo(k8s, gitops.StorageModeInMemory, directory)
 	if err != nil {
 		t.Errorf("Error (TestRollback): unable to set up repo")
 	}
