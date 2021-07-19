@@ -89,7 +89,7 @@ func (cr *CustomRepo) createRepo(storer *memory.Storage) (*git.Repository, error
 			cr.Dir = path
 		}
 	}
-	cr.Dir += "/network-policy-repository"
+	cr.Dir += "/resource-auditing-repo"
 	r, err := git.PlainInit(cr.Dir, false)
 	if err == git.ErrRepositoryAlreadyExists {
 		klog.V(2).InfoS("network policy repository already exists - skipping initialization")
@@ -161,7 +161,7 @@ func (cr *CustomRepo) addK8sPolicies() error {
 			}
 		}
 		path := cr.Dir + "/k8s-policies/" + np.Namespace + "/" + np.Name + ".yaml"
-		klog.V(2).Infof("Added K8s policy at network-policy-repository/k8s-policies/" + np.Namespace + "/" + np.Name + ".yaml")
+		klog.V(2).Infof("Added K8s policy at resource-auditing-repo/k8s-policies/" + np.Namespace + "/" + np.Name + ".yaml")
 		y, err := yaml.Marshal(&np)
 		if err != nil {
 			klog.ErrorS(err, "unable to marshal policy config")
@@ -206,7 +206,7 @@ func (cr *CustomRepo) addAntreaPolicies() error {
 			os.Mkdir(cr.Dir+"/antrea-policies/"+np.Namespace, 0700)
 		}
 		path := cr.Dir + "/antrea-policies/" + np.Namespace + "/" + np.Name + ".yaml"
-		klog.V(2).Infof("Added Antrea policy at network-policy-repository/antrea-policies/" + np.Namespace + "/" + np.Name + ".yaml")
+		klog.V(2).Infof("Added Antrea policy at resource-auditing-repo/antrea-policies/" + np.Namespace + "/" + np.Name + ".yaml")
 		y, err := yaml.Marshal(&np)
 		if err != nil {
 			klog.ErrorS(err, "unable to marshal policy config")
@@ -246,7 +246,7 @@ func (cr *CustomRepo) addAntreaClusterPolicies() error {
 		np.ObjectMeta.ManagedFields = nil
 		delete(np.ObjectMeta.Annotations, "kubectl.kubernetes.io/last-applied-configuration")
 		path := cr.Dir + "/antrea-cluster-policies/" + np.Name + ".yaml"
-		klog.V(2).Infof("Added Antrea cluster policy at network-policy-repository/antrea-cluster-policies/" + np.Name + ".yaml")
+		klog.V(2).Infof("Added Antrea cluster policy at resource-auditing-repo/antrea-cluster-policies/" + np.Name + ".yaml")
 		y, err := yaml.Marshal(&np)
 		if err != nil {
 			klog.ErrorS(err, "unable to marshal policy config")
@@ -286,7 +286,7 @@ func (cr *CustomRepo) addAntreaTiers() error {
 		tier.ObjectMeta.ManagedFields = nil
 		delete(tier.ObjectMeta.Annotations, "kubectl.kubernetes.io/last-applied-configuration")
 		path := cr.Dir + "/antrea-tiers/" + tier.Name + ".yaml"
-		klog.V(2).Infof("Added Antrea tier at network-policy-repository/antrea-tiers/" + tier.Name + ".yaml")
+		klog.V(2).Infof("Added Antrea tier at resource-auditing-repo/antrea-tiers/" + tier.Name + ".yaml")
 		y, err := yaml.Marshal(&tier)
 		if err != nil {
 			klog.ErrorS(err, "unable to marshal tier config")
