@@ -32,7 +32,7 @@ func main() {
 		klog.ErrorS(err, "unable to set up network policy repository")
 		return
 	}
-	if err := webhook.ReceiveEvents(dirFlag, portFlag, cr); err != nil {
+	if err := webhook.ReceiveEvents(portFlag, cr); err != nil {
 		klog.ErrorS(err, "an error occurred while running the audit webhook service")
 		return
 	}

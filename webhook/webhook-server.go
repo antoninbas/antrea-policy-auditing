@@ -105,7 +105,7 @@ func rollback(w http.ResponseWriter, r *http.Request, cr *gitops.CustomRepo) {
 	}
 }
 
-func ReceiveEvents(dir string, port string, cr *gitops.CustomRepo) error {
+func ReceiveEvents(port string, cr *gitops.CustomRepo) error {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		events(w, r, cr)
 	})
