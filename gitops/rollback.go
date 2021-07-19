@@ -259,7 +259,7 @@ func (cr *CustomRepo) deleteResourceByPath(path string) error {
 func (cr *CustomRepo) getMetadata(path string) (string, string, error) {
 	meta := metav1.TypeMeta{}
 	var y []byte
-	if cr.StorageMode == "disk" {
+	if cr.StorageMode == StorageModeDisk {
 		y, _ = ioutil.ReadFile(path)
 	} else {
 		fstat, _ := cr.Fs.Stat(path)
@@ -285,7 +285,7 @@ func (cr *CustomRepo) getMetadata(path string) (string, string, error) {
 
 func (cr *CustomRepo) getResource(resource runtime.Object, path string) {
 	var y []byte
-	if cr.StorageMode == "disk" {
+	if cr.StorageMode == StorageModeDisk {
 		y, _ = ioutil.ReadFile(path)
 	} else {
 		fstat, _ := cr.Fs.Stat(path)

@@ -16,19 +16,25 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+type StorageModeType string
+const (
+    StorageModeDisk StorageModeType = "Disk"
+    StorageModeInMemory StorageModeType = "InMemory"
+)
+
 type CustomRepo struct {
 	Repo           *git.Repository
 	K8s            *KubeClients
 	RollbackMode   bool
-	StorageMode    string
+	StorageMode    StorageModeType
 	ServiceAccount string
 	Dir            string
 	Fs             billy.Filesystem
 	Mutex          sync.Mutex
 }
 
-func SetupRepo(k *KubeClients, mode string, dir string) (*CustomRepo, error) {
-	if mode != "mem" && mode != "disk" {
+func SetupRepo(k *KubeClients, mode StorageModeType, dir string) (*CustomRepo, error) {
+	if mode != StorageModeDisk && mode != StorageModeInMemory {
 		tmp := errors.New("mode must be memory(mem) or disk(disk)")
 		klog.ErrorS(tmp, "incorrect mode")
 		return nil, tmp
@@ -68,7 +74,7 @@ func SetupRepo(k *KubeClients, mode string, dir string) (*CustomRepo, error) {
 }
 
 func (cr *CustomRepo) createRepo(storer *memory.Storage) (*git.Repository, error) {
-	if cr.StorageMode == "mem" {
+	if cr.StorageMode == StorageModeInMemory {
 		r, err := git.Init(storer, cr.Fs)
 		if err == git.ErrRepositoryAlreadyExists {
 			klog.V(2).InfoS("network policy repository already exists - skipping initialization")
@@ -107,7 +113,7 @@ func (cr *CustomRepo) createRepo(storer *memory.Storage) (*git.Repository, error
 }
 
 func (cr *CustomRepo) addResources() error {
-	if cr.StorageMode == "disk" {
+	if cr.StorageMode == StorageModeDisk {
 		os.Mkdir(cr.Dir+"/k8s-policies", 0700)
 		os.Mkdir(cr.Dir+"/antrea-policies", 0700)
 		os.Mkdir(cr.Dir+"/antrea-cluster-policies", 0700)
@@ -154,7 +160,7 @@ func (cr *CustomRepo) addK8sPolicies() error {
 		delete(np.ObjectMeta.Annotations, "kubectl.kubernetes.io/last-applied-configuration")
 		if !StringInSlice(np.Namespace, namespaces) {
 			namespaces = append(namespaces, np.Namespace)
-			if cr.StorageMode == "disk" {
+			if cr.StorageMode == StorageModeDisk {
 				os.Mkdir(cr.Dir+"/k8s-policies/"+np.Namespace, 0700)
 			} else {
 				cr.Fs.MkdirAll("k8s-policies/"+np.Namespace, 0700)
@@ -167,7 +173,7 @@ func (cr *CustomRepo) addK8sPolicies() error {
 			klog.ErrorS(err, "unable to marshal policy config")
 			return err
 		}
-		if cr.StorageMode == "disk" {
+		if cr.StorageMode == StorageModeDisk {
 			err = ioutil.WriteFile(path, y, 0644)
 			if err != nil {
 				klog.ErrorS(err, "unable to write policy config to file")
@@ -212,7 +218,7 @@ func (cr *CustomRepo) addAntreaPolicies() error {
 			klog.ErrorS(err, "unable to marshal policy config")
 			return err
 		}
-		if cr.StorageMode == "disk" {
+		if cr.StorageMode == StorageModeDisk {
 			err = ioutil.WriteFile(path, y, 0644)
 			if err != nil {
 				klog.ErrorS(err, "unable to write policy config to file")
@@ -252,7 +258,7 @@ func (cr *CustomRepo) addAntreaClusterPolicies() error {
 			klog.ErrorS(err, "unable to marshal policy config")
 			return err
 		}
-		if cr.StorageMode == "disk" {
+		if cr.StorageMode == StorageModeDisk {
 			err = ioutil.WriteFile(path, y, 0644)
 			if err != nil {
 				klog.ErrorS(err, "unable to write policy config to file")
@@ -292,7 +298,7 @@ func (cr *CustomRepo) addAntreaTiers() error {
 			klog.ErrorS(err, "unable to marshal tier config")
 			return err
 		}
-		if cr.StorageMode == "disk" {
+		if cr.StorageMode == StorageModeDisk {
 			err = ioutil.WriteFile(path, y, 0644)
 			if err != nil {
 				klog.ErrorS(err, "unable to write policy config to file")
