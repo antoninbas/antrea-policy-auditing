@@ -8,7 +8,6 @@ import (
 	v1alpha1 "antrea.io/antrea/pkg/apis/crd/v1alpha1"
 	crdclientset "antrea.io/antrea/pkg/client/clientset/versioned"
 	"github.com/pkg/errors"
-	v1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -17,19 +16,17 @@ import (
 	"k8s.io/klog/v2"
 )
 
-type Kubernetes struct {
-	PodCache  map[string][]v1.Pod
+type KubeClients struct {
 	ClientSet kubernetes.Interface
 	CrdClient crdclientset.Interface
 }
 
-func NewKubernetes() (*Kubernetes, error) {
+func NewKubernetes() (*KubeClients, error) {
 	clientSet, crdClientSet, err := Client()
 	if err != nil {
 		return nil, errors.WithMessagef(err, "unable to instantiate clientsets")
 	}
-	return &Kubernetes{
-		PodCache:  map[string][]v1.Pod{},
+	return &KubeClients{
 		ClientSet: clientSet,
 		CrdClient: crdClientSet,
 	}, nil
@@ -60,7 +57,7 @@ func Client() (*kubernetes.Clientset, *crdclientset.Clientset, error) {
 	return clientset, crdclient, nil
 }
 
-func (k *Kubernetes) GetK8sPolicies() (*networking.NetworkPolicyList, error) {
+func (k *KubeClients) GetK8sPolicies() (*networking.NetworkPolicyList, error) {
 	l, err := k.ClientSet.NetworkingV1().NetworkPolicies("").List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		klog.ErrorS(err, "unable to list k8s network policies")
@@ -69,7 +66,7 @@ func (k *Kubernetes) GetK8sPolicies() (*networking.NetworkPolicyList, error) {
 	return l, nil
 }
 
-func (k *Kubernetes) CreateOrUpdateK8sPolicy(policy *networking.NetworkPolicy) error {
+func (k *KubeClients) CreateOrUpdateK8sPolicy(policy *networking.NetworkPolicy) error {
 	_, err := k.ClientSet.NetworkingV1().NetworkPolicies(policy.Namespace).Create(context.TODO(), policy, metav1.CreateOptions{})
 	if err == nil {
 		klog.V(2).Infof("created k8s network policy %s in namespace %s", policy.Name, policy.Namespace)
@@ -85,7 +82,7 @@ func (k *Kubernetes) CreateOrUpdateK8sPolicy(policy *networking.NetworkPolicy) e
 	return nil
 }
 
-func (k *Kubernetes) DeleteK8sPolicy(policy *networking.NetworkPolicy) error {
+func (k *KubeClients) DeleteK8sPolicy(policy *networking.NetworkPolicy) error {
 	err := k.ClientSet.NetworkingV1().NetworkPolicies(policy.Namespace).Delete(context.TODO(), policy.Name, metav1.DeleteOptions{})
 	if err != nil {
 		klog.Errorf("unable to delete k8s network policy %s in namespace %s", policy.Name, policy.Namespace)
@@ -95,7 +92,7 @@ func (k *Kubernetes) DeleteK8sPolicy(policy *networking.NetworkPolicy) error {
 	return nil
 }
 
-func (k *Kubernetes) GetAntreaPolicies() (*v1alpha1.NetworkPolicyList, error) {
+func (k *KubeClients) GetAntreaPolicies() (*v1alpha1.NetworkPolicyList, error) {
 	l, err := k.CrdClient.CrdV1alpha1().NetworkPolicies("").List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		klog.ErrorS(err, "unable to list antrea network policies")
@@ -104,7 +101,7 @@ func (k *Kubernetes) GetAntreaPolicies() (*v1alpha1.NetworkPolicyList, error) {
 	return l, nil
 }
 
-func (k *Kubernetes) CreateOrUpdateAntreaPolicy(policy *v1alpha1.NetworkPolicy) error {
+func (k *KubeClients) CreateOrUpdateAntreaPolicy(policy *v1alpha1.NetworkPolicy) error {
 	_, err := k.CrdClient.CrdV1alpha1().NetworkPolicies(policy.Namespace).Create(context.TODO(), policy, metav1.CreateOptions{})
 	if err == nil {
 		klog.V(2).Infof("created antrea network policy %s in namespace %s", policy.Name, policy.Namespace)
@@ -120,7 +117,7 @@ func (k *Kubernetes) CreateOrUpdateAntreaPolicy(policy *v1alpha1.NetworkPolicy) 
 	return nil
 }
 
-func (k *Kubernetes) DeleteAntreaPolicy(policy *v1alpha1.NetworkPolicy) error {
+func (k *KubeClients) DeleteAntreaPolicy(policy *v1alpha1.NetworkPolicy) error {
 	err := k.CrdClient.CrdV1alpha1().NetworkPolicies(policy.Namespace).Delete(context.TODO(), policy.Name, metav1.DeleteOptions{})
 	if err != nil {
 		klog.Errorf("unable to delete antrea network policy %s in namespace %s", policy.Name, policy.Namespace)
@@ -130,7 +127,7 @@ func (k *Kubernetes) DeleteAntreaPolicy(policy *v1alpha1.NetworkPolicy) error {
 	return nil
 }
 
-func (k *Kubernetes) GetAntreaClusterPolicies() (*v1alpha1.ClusterNetworkPolicyList, error) {
+func (k *KubeClients) GetAntreaClusterPolicies() (*v1alpha1.ClusterNetworkPolicyList, error) {
 	l, err := k.CrdClient.CrdV1alpha1().ClusterNetworkPolicies().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		klog.ErrorS(err, "unable to list antrea cluster network policies")
@@ -139,7 +136,7 @@ func (k *Kubernetes) GetAntreaClusterPolicies() (*v1alpha1.ClusterNetworkPolicyL
 	return l, nil
 }
 
-func (k *Kubernetes) CreateOrUpdateAntreaClusterPolicy(policy *v1alpha1.ClusterNetworkPolicy) error {
+func (k *KubeClients) CreateOrUpdateAntreaClusterPolicy(policy *v1alpha1.ClusterNetworkPolicy) error {
 	_, err := k.CrdClient.CrdV1alpha1().ClusterNetworkPolicies().Create(context.TODO(), policy, metav1.CreateOptions{})
 	if err == nil {
 		klog.V(2).Infof("created antrea cluster network policy %s", policy.Name)
@@ -155,7 +152,7 @@ func (k *Kubernetes) CreateOrUpdateAntreaClusterPolicy(policy *v1alpha1.ClusterN
 	return nil
 }
 
-func (k *Kubernetes) DeleteAntreaClusterPolicy(policy *v1alpha1.ClusterNetworkPolicy) error {
+func (k *KubeClients) DeleteAntreaClusterPolicy(policy *v1alpha1.ClusterNetworkPolicy) error {
 	err := k.CrdClient.CrdV1alpha1().ClusterNetworkPolicies().Delete(context.TODO(), policy.Name, metav1.DeleteOptions{})
 	if err != nil {
 		klog.Errorf("unable to delete antrea cluster network policy %s", policy.Name)
@@ -165,7 +162,7 @@ func (k *Kubernetes) DeleteAntreaClusterPolicy(policy *v1alpha1.ClusterNetworkPo
 	return nil
 }
 
-func (k *Kubernetes) GetAntreaTiers() (*v1alpha1.TierList, error) {
+func (k *KubeClients) GetAntreaTiers() (*v1alpha1.TierList, error) {
 	l, err := k.CrdClient.CrdV1alpha1().Tiers().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		klog.ErrorS(err, "unable to list antrea tiers")
@@ -174,7 +171,7 @@ func (k *Kubernetes) GetAntreaTiers() (*v1alpha1.TierList, error) {
 	return l, nil
 }
 
-func (k *Kubernetes) CreateOrUpdateAntreaTier(tier *v1alpha1.Tier) error {
+func (k *KubeClients) CreateOrUpdateAntreaTier(tier *v1alpha1.Tier) error {
 	_, err := k.CrdClient.CrdV1alpha1().Tiers().Create(context.TODO(), tier, metav1.CreateOptions{})
 	if err == nil {
 		klog.V(2).Infof("created antrea tier %s", tier.Name)
@@ -190,7 +187,7 @@ func (k *Kubernetes) CreateOrUpdateAntreaTier(tier *v1alpha1.Tier) error {
 	return nil
 }
 
-func (k *Kubernetes) DeleteAntreaTier(tier *v1alpha1.Tier) error {
+func (k *KubeClients) DeleteAntreaTier(tier *v1alpha1.Tier) error {
 	err := k.CrdClient.CrdV1alpha1().Tiers().Delete(context.TODO(), tier.Name, metav1.DeleteOptions{})
 	if err != nil {
 		klog.Errorf("unable to delete antrea tier %s", tier.Name)

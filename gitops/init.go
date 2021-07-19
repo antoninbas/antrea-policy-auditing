@@ -18,7 +18,7 @@ import (
 
 type CustomRepo struct {
 	Repo           *git.Repository
-	K8s            *Kubernetes
+	K8s            *KubeClients
 	RollbackMode   bool
 	StorageMode    string
 	ServiceAccount string
@@ -27,7 +27,7 @@ type CustomRepo struct {
 	Mutex          sync.Mutex
 }
 
-func SetupRepo(k *Kubernetes, mode string, dir string) (*CustomRepo, error) {
+func SetupRepo(k *KubeClients, mode string, dir string) (*CustomRepo, error) {
 	if mode != "mem" && mode != "disk" {
 		tmp := errors.New("mode must be memory(mem) or disk(disk)")
 		klog.ErrorS(tmp, "incorrect mode")

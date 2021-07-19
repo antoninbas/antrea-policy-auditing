@@ -17,8 +17,6 @@ import (
 	memory "github.com/go-git/go-git/v5/storage/memory"
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	v1 "k8s.io/api/core/v1"
 )
 
 var (
@@ -88,8 +86,7 @@ var (
 func TestHandleEventList(t *testing.T) {
 	fakeK8sClient := NewK8sClientSet(Np1.inputResource)
 	fakeCRDClient := NewCRDClientSet(Anp1.inputResource)
-	k8s := &gitops.Kubernetes{
-		PodCache:  map[string][]v1.Pod{},
+	k8s := &gitops.KubeClients{
 		ClientSet: fakeK8sClient,
 		CrdClient: fakeCRDClient,
 	}
@@ -116,8 +113,7 @@ func TestHandleEventList(t *testing.T) {
 func TestTagging(t *testing.T) {
 	fakeK8sClient := NewK8sClientSet()
 	fakeCRDClient := NewCRDClientSet()
-	k8s := &gitops.Kubernetes{
-		PodCache:  map[string][]v1.Pod{},
+	k8s := &gitops.KubeClients{
 		ClientSet: fakeK8sClient,
 		CrdClient: fakeCRDClient,
 	}
@@ -174,8 +170,7 @@ func TestTagging(t *testing.T) {
 func TestRollback(t *testing.T) {
 	fakeK8sClient := NewK8sClientSet(Np1.inputResource)
 	fakeCRDClient := NewCRDClientSet(Anp1.inputResource)
-	k8s := &gitops.Kubernetes{
-		PodCache:  map[string][]v1.Pod{},
+	k8s := &gitops.KubeClients{
 		ClientSet: fakeK8sClient,
 		CrdClient: fakeCRDClient,
 	}

@@ -9,7 +9,6 @@ import (
 	crdv1alpha1 "antrea.io/antrea/pkg/apis/crd/v1alpha1"
 	fakeversioned "antrea.io/antrea/pkg/client/clientset/versioned/fake"
 	"github.com/stretchr/testify/assert"
-	v1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -413,8 +412,7 @@ func TestSetupRepo(t *testing.T) {
 		}
 		fakeK8sClient := NewK8sClientSet(k8sResources...)
 		fakeCRDClient := NewCRDClientSet(crdResources...)
-		k8s := &gitops.Kubernetes{
-			PodCache:  map[string][]v1.Pod{},
+		k8s := &gitops.KubeClients{
 			ClientSet: fakeK8sClient,
 			CrdClient: fakeCRDClient,
 		}
@@ -422,7 +420,7 @@ func TestSetupRepo(t *testing.T) {
 	}
 }
 
-func runSetupTest(t *testing.T, k8s *gitops.Kubernetes, expPaths []string, expYamls []string) {
+func runSetupTest(t *testing.T, k8s *gitops.KubeClients, expPaths []string, expYamls []string) {
 	cr, err := gitops.SetupRepo(k8s, "mem", dir)
 	if err != nil {
 		t.Errorf("Error (TestSetupRepo): unable to set up repo")
@@ -443,8 +441,7 @@ func runSetupTest(t *testing.T, k8s *gitops.Kubernetes, expPaths []string, expYa
 func TestRepoDuplicate(t *testing.T) {
 	fakeK8sClient := NewK8sClientSet(Np1.inputResource)
 	fakeCRDClient := NewCRDClientSet(Anp1.inputResource)
-	k8s := &gitops.Kubernetes{
-		PodCache:  map[string][]v1.Pod{},
+	k8s := &gitops.KubeClients{
 		ClientSet: fakeK8sClient,
 		CrdClient: fakeCRDClient,
 	}

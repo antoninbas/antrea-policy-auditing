@@ -1,14 +1,11 @@
 package test
 
 import (
-	// "fmt"
 	"io/ioutil"
 	"testing"
 	"time"
 
 	. "antrea-audit/gitops"
-
-	v1 "k8s.io/api/core/v1"
 )
 
 func TestFilterCommits(t *testing.T) {
@@ -17,8 +14,7 @@ func TestFilterCommits(t *testing.T) {
 	empty := ""
 	fakeK8sClient := NewK8sClientSet(Np1.inputResource)
 	fakeCRDClient := NewCRDClientSet(Anp1.inputResource)
-	k8s := &Kubernetes{
-		PodCache:  map[string][]v1.Pod{},
+	k8s := &KubeClients{
 		ClientSet: fakeK8sClient,
 		CrdClient: fakeCRDClient,
 	}

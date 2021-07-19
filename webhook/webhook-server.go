@@ -97,6 +97,7 @@ func rollback(w http.ResponseWriter, r *http.Request, cr *gitops.CustomRepo) {
 		klog.ErrorS(err, "unable to marshal request body")
 		w.WriteHeader(http.StatusBadRequest)
 	}
+	//TODO: process input as tag or commit hash based on flag?
 	commit, _ := cr.TagToCommit(rollbackRequest.tag)
 	if err := cr.RollbackRepo(commit); err != nil {
 		klog.ErrorS(err, "failed to rollback repo")

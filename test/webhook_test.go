@@ -1,20 +1,17 @@
 package test
 
 import (
-    "fmt"
-    "testing"
-    "antrea-audit/gitops"
-    "antrea-audit/webhook"
-
-    v1 "k8s.io/api/core/v1"
+	"antrea-audit/gitops"
+	"antrea-audit/webhook"
+	"fmt"
+	"testing"
 )
 
 func TestExposeWebhook(t *testing.T) {
     mt := ""
     fakeK8sClient := NewK8sClientSet(Np1.inputResource)
 	fakeCRDClient := NewCRDClientSet(Anp1.inputResource)
-	k8s := &gitops.Kubernetes{
-		PodCache:  map[string][]v1.Pod{},
+	k8s := &gitops.KubeClients{
 		ClientSet: fakeK8sClient,
 		CrdClient: fakeCRDClient,
 	}
