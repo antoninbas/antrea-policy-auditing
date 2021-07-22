@@ -18,10 +18,11 @@ require (
 	github.com/go-git/go-git/v5 v5.4.2
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.7.0
-	k8s.io/api v0.21.1
-	k8s.io/apimachinery v0.21.1
-	k8s.io/apiserver v0.21.0
-	k8s.io/client-go v0.21.1
+	k8s.io/api v0.21.2
+	k8s.io/apimachinery v0.21.2
+	k8s.io/apiserver v0.21.2
+	k8s.io/client-go v0.21.2
 	k8s.io/klog v0.3.0
 	k8s.io/klog/v2 v2.8.0
+	sigs.k8s.io/controller-runtime v0.9.2
 )

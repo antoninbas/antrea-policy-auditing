@@ -10,29 +10,35 @@ import (
 	"github.com/pkg/errors"
 	networking "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type KubeClients struct {
 	ClientSet kubernetes.Interface
 	CrdClient crdclientset.Interface
+	GenericClient client.Client
 }
 
 func NewKubernetes() (*KubeClients, error) {
-	clientSet, crdClientSet, err := Client()
+	clientSet, crdClientSet, genericClient, err := Client()
 	if err != nil {
 		return nil, errors.WithMessagef(err, "unable to instantiate clientsets")
 	}
 	return &KubeClients{
 		ClientSet: clientSet,
 		CrdClient: crdClientSet,
+		GenericClient: genericClient, //remove other clients and change this name
 	}, nil
 }
 
-func Client() (*kubernetes.Clientset, *crdclientset.Clientset, error) {
+func Client() (*kubernetes.Clientset, *crdclientset.Clientset, client.Client, error) {
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		kubeconfig := filepath.Join(
@@ -41,29 +47,78 @@ func Client() (*kubernetes.Clientset, *crdclientset.Clientset, error) {
 		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
 		if err != nil {
 			klog.ErrorS(err, "unable to build config from flags, check that your KUBECONFIG file is correct!")
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 	}
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		klog.ErrorS(err, "unable to instantiate clientset")
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	crdclient, err := crdclientset.NewForConfig(config)
 	if err != nil {
 		klog.ErrorS(err, "unable to instantiate crdclientset")
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	return clientset, crdclient, nil
+	scheme := runtime.NewScheme()
+	registerTypes(scheme)
+	genericClient, err := client.New(config, client.Options{Scheme: scheme})
+	if err != nil {
+		klog.ErrorS(err, "unable to instantiate new generic client")
+		return nil, nil, nil, err
+	}
+	return clientset, crdclient, genericClient, nil
 }
 
-func (k *KubeClients) GetK8sPolicies() (*networking.NetworkPolicyList, error) {
-	l, err := k.ClientSet.NetworkingV1().NetworkPolicies("").List(context.TODO(), metav1.ListOptions{})
+func registerTypes(scheme *runtime.Scheme) {
+	scheme.AddKnownTypeWithName(schema.GroupVersionKind{
+		Group: "networking.k8s.io", 
+		Version: "v1", 
+		Kind: "NetworkPolicyList"}, 
+		&networking.NetworkPolicyList{})
+	scheme.AddKnownTypeWithName(schema.GroupVersionKind{
+		Group: "networking.k8s.io", 
+		Version: "v1", 
+		Kind: "ListOptions"}, 
+		&metav1.ListOptions{})	
+	scheme.AddKnownTypeWithName(schema.GroupVersionKind{
+		Group: "crd.antrea.io", 
+		Version: "v1alpha1", 
+		Kind: "NetworkPolicyList"}, 
+		&v1alpha1.NetworkPolicyList{})
+	scheme.AddKnownTypeWithName(schema.GroupVersionKind{
+		Group: "crd.antrea.io", 
+		Version: "v1alpha1", 
+		Kind: "ClusterNetworkPolicyList"}, 
+		&v1alpha1.ClusterNetworkPolicyList{})
+	scheme.AddKnownTypeWithName(schema.GroupVersionKind{
+		Group: "crd.antrea.io", 
+		Version: "v1alpha1", 
+		Kind: "TierList"}, 
+		&v1alpha1.TierList{})
+	scheme.AddKnownTypeWithName(schema.GroupVersionKind{
+		Group: "crd.antrea.io", 
+		Version: "v1alpha1", 
+		Kind: "ListOptions"},
+		&metav1.ListOptions{})
+}
+
+func (k *KubeClients) ListResource(resourceList *unstructured.UnstructuredList) (*unstructured.UnstructuredList, error) {
+	err := k.GenericClient.List(context.TODO(), resourceList)
 	if err != nil {
-		klog.ErrorS(err, "unable to list k8s network policies")
+		klog.ErrorS(err, "unable to list resource")
 		return nil, err
 	}
-	return l, nil
+	return resourceList, nil
+}
+
+func (k *KubeClients) CreateOrUpdateResource(resource *unstructured.Unstructured) error {
+	if err := k.GenericClient.Create(context.TODO(), resource); err == nil {
+		klog.V(2).Infof("created resource")
+		return nil
+	}
+	klog.V(2).Infof("unable to create resource, trying update instead")
+	return nil
 }
 
 func (k *KubeClients) CreateOrUpdateK8sPolicy(policy *networking.NetworkPolicy) error {
@@ -92,15 +147,6 @@ func (k *KubeClients) DeleteK8sPolicy(policy *networking.NetworkPolicy) error {
 	return nil
 }
 
-func (k *KubeClients) GetAntreaPolicies() (*v1alpha1.NetworkPolicyList, error) {
-	l, err := k.CrdClient.CrdV1alpha1().NetworkPolicies("").List(context.TODO(), metav1.ListOptions{})
-	if err != nil {
-		klog.ErrorS(err, "unable to list antrea network policies")
-		return nil, err
-	}
-	return l, nil
-}
-
 func (k *KubeClients) CreateOrUpdateAntreaPolicy(policy *v1alpha1.NetworkPolicy) error {
 	_, err := k.CrdClient.CrdV1alpha1().NetworkPolicies(policy.Namespace).Create(context.TODO(), policy, metav1.CreateOptions{})
 	if err == nil {
@@ -127,15 +173,6 @@ func (k *KubeClients) DeleteAntreaPolicy(policy *v1alpha1.NetworkPolicy) error {
 	return nil
 }
 
-func (k *KubeClients) GetAntreaClusterPolicies() (*v1alpha1.ClusterNetworkPolicyList, error) {
-	l, err := k.CrdClient.CrdV1alpha1().ClusterNetworkPolicies().List(context.TODO(), metav1.ListOptions{})
-	if err != nil {
-		klog.ErrorS(err, "unable to list antrea cluster network policies")
-		return nil, err
-	}
-	return l, nil
-}
-
 func (k *KubeClients) CreateOrUpdateAntreaClusterPolicy(policy *v1alpha1.ClusterNetworkPolicy) error {
 	_, err := k.CrdClient.CrdV1alpha1().ClusterNetworkPolicies().Create(context.TODO(), policy, metav1.CreateOptions{})
 	if err == nil {
@@ -160,15 +197,6 @@ func (k *KubeClients) DeleteAntreaClusterPolicy(policy *v1alpha1.ClusterNetworkP
 	}
 	klog.V(2).Infof("deleted antrea cluster network policy %s", policy.Name)
 	return nil
-}
-
-func (k *KubeClients) GetAntreaTiers() (*v1alpha1.TierList, error) {
-	l, err := k.CrdClient.CrdV1alpha1().Tiers().List(context.TODO(), metav1.ListOptions{})
-	if err != nil {
-		klog.ErrorS(err, "unable to list antrea tiers")
-		return nil, err
-	}
-	return l, nil
 }
 
 func (k *KubeClients) CreateOrUpdateAntreaTier(tier *v1alpha1.Tier) error {
