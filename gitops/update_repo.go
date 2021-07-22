@@ -10,6 +10,7 @@ import (
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	timev1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	auditv1 "k8s.io/apiserver/pkg/apis/audit/v1"
 	"k8s.io/klog/v2"
 )
@@ -55,7 +56,11 @@ func (cr *CustomRepo) modifyFile(event auditv1.Event) error {
 	resource.Metadata.UID = ""
 	resource.Metadata.Generation = 0
 	resource.Metadata.ManagedFields = nil
-	delete(resource.Metadata.Annotations, "kubectl.kubernetes.io/last-applied-configuration")
+	resource.Metadata.CreationTimestamp = timev1.Time{}
+	annotations := resource.Metadata.GetAnnotations()
+	delete(annotations, "kubectl.kubernetes.io/last-applied-configuration")
+	resource.Metadata.Annotations = annotations
+	
 	y, err := yaml.Marshal(&resource)
 	if err != nil {
 		klog.ErrorS(err, "unable to marshal new resource config")
