@@ -114,10 +114,31 @@ func (k *KubeClients) ListResource(resourceList *unstructured.UnstructuredList) 
 
 func (k *KubeClients) CreateOrUpdateResource(resource *unstructured.Unstructured) error {
 	if err := k.GenericClient.Create(context.TODO(), resource); err == nil {
-		klog.V(2).Infof("created resource")
+		klog.V(2).Infof("created resource %s", resource.GetName())
 		return nil
 	}
 	klog.V(2).Infof("unable to create resource, trying update instead")
+	oldResource := &unstructured.Unstructured{}
+	_ = k.GenericClient.Get(context.TODO(), client.ObjectKey{
+		Namespace: resource.GetNamespace(),
+		Name: resource.GetName(),
+	}, oldResource)
+	resource.SetResourceVersion(oldResource.GetResourceVersion())
+	if err := k.GenericClient.Update(context.TODO(), resource); err != nil {
+		klog.Errorf("unable to update k8s resource %s", resource.GetName())
+		return err
+	}
+	klog.V(2).Infof("updated resource %s", resource.GetName())
+	return nil
+}
+
+func (k *KubeClients) DeleteResource(resource *unstructured.Unstructured) error {
+	err := k.GenericClient.Delete(context.TODO(), resource)
+	if err != nil {
+		klog.Errorf("unable to delete resource %s", resource.GetName())
+		return err
+	}
+	klog.V(2).Infof("deleted k8s network policy %s", resource.GetName())
 	return nil
 }
 
@@ -128,6 +149,8 @@ func (k *KubeClients) CreateOrUpdateK8sPolicy(policy *networking.NetworkPolicy) 
 		return nil
 	}
 	klog.V(2).Infof("unable to create k8s network policy %s in namespace %s, trying update instead", policy.Name, policy.Namespace)
+	oldPolicy, _ := k.ClientSet.NetworkingV1().NetworkPolicies(policy.Namespace).Get(context.TODO(), policy.Name, metav1.GetOptions{})
+	policy.SetResourceVersion(oldPolicy.GetResourceVersion())
 	_, err = k.ClientSet.NetworkingV1().NetworkPolicies(policy.Namespace).Update(context.TODO(), policy, metav1.UpdateOptions{})
 	if err != nil {
 		klog.Errorf("unable to create/update k8s network policy %s in namespace %s", policy.Name, policy.Namespace)
@@ -154,6 +177,8 @@ func (k *KubeClients) CreateOrUpdateAntreaPolicy(policy *v1alpha1.NetworkPolicy)
 		return nil
 	}
 	klog.V(2).Infof("unable to create antrea network policy %s in namespace %s, trying update instead", policy.Name, policy.Namespace)
+	oldPolicy, _ := k.CrdClient.CrdV1alpha1().NetworkPolicies(policy.Namespace).Get(context.TODO(), policy.Name, metav1.GetOptions{})
+	policy.SetResourceVersion(oldPolicy.GetResourceVersion())
 	_, err = k.CrdClient.CrdV1alpha1().NetworkPolicies(policy.Namespace).Update(context.TODO(), policy, metav1.UpdateOptions{})
 	if err != nil {
 		klog.Errorf("unable to create/update antrea network policy %s in namespace %s", policy.Name, policy.Namespace)
@@ -180,6 +205,8 @@ func (k *KubeClients) CreateOrUpdateAntreaClusterPolicy(policy *v1alpha1.Cluster
 		return nil
 	}
 	klog.V(2).Infof("unable to create antrea cluster network policy %s, trying update instead", policy.Name)
+	oldPolicy, _ := k.CrdClient.CrdV1alpha1().ClusterNetworkPolicies().Get(context.TODO(), policy.Name, metav1.GetOptions{})
+	policy.SetResourceVersion(oldPolicy.GetResourceVersion())
 	_, err = k.CrdClient.CrdV1alpha1().ClusterNetworkPolicies().Update(context.TODO(), policy, metav1.UpdateOptions{})
 	if err != nil {
 		klog.Errorf("unable to create/update antrea cluster network policy %s", policy.Name)
@@ -206,6 +233,8 @@ func (k *KubeClients) CreateOrUpdateAntreaTier(tier *v1alpha1.Tier) error {
 		return nil
 	}
 	klog.V(2).Infof("unable to create antrea tier %s, trying update instead", tier.Name)
+	oldTier, _ := k.CrdClient.CrdV1alpha1().Tiers().Get(context.TODO(), tier.Name, metav1.GetOptions{})
+	tier.SetResourceVersion(oldTier.GetResourceVersion())
 	_, err = k.CrdClient.CrdV1alpha1().Tiers().Update(context.TODO(), tier, metav1.UpdateOptions{})
 	if err != nil {
 		klog.Errorf("unable to create/update antrea tier %s", tier.Name)

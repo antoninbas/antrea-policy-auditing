@@ -13,7 +13,7 @@ import (
 	billy "github.com/go-git/go-billy/v5"
 	memfs "github.com/go-git/go-billy/v5/memfs"
 	memory "github.com/go-git/go-git/v5/storage/memory"
-	timev1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -44,9 +44,9 @@ func SetupRepo(k *KubeClients, mode StorageModeType, dir string) (*CustomRepo, e
 	}
 	storer := memory.NewStorage()
 	fs := memfs.New()
-	svcAcct := "system:serviceaccount:" + GetAuditPodNamespace() + GetAuditServiceAccount()
+	svcAcct := "system:serviceaccount:" + GetAuditPodNamespace() + ":" + GetAuditServiceAccount()
 	cr := CustomRepo{
-		K8s:            k,
+		K8s:            k,	
 		RollbackMode:   false,
 		StorageMode:    mode,
 		ServiceAccount: svcAcct,
@@ -162,7 +162,7 @@ func (cr *CustomRepo) addK8sPolicies() error {
 		np.SetUID("")
 		np.SetGeneration(0)
 		np.SetManagedFields(nil)
-		np.SetCreationTimestamp(timev1.Time{})
+		np.SetCreationTimestamp(metav1.Time{})
 		np.SetResourceVersion("")
 		annotations := np.GetAnnotations()
 		delete(annotations, "kubectl.kubernetes.io/last-applied-configuration")
@@ -220,7 +220,7 @@ func (cr *CustomRepo) addAntreaPolicies() error {
 		np.SetUID("")
 		np.SetGeneration(0)
 		np.SetManagedFields(nil)
-		np.SetCreationTimestamp(timev1.Time{})
+		np.SetCreationTimestamp(metav1.Time{})
 		np.SetResourceVersion("")
 		annotations := np.GetAnnotations()
 		delete(annotations, "kubectl.kubernetes.io/last-applied-configuration")
@@ -273,7 +273,7 @@ func (cr *CustomRepo) addAntreaClusterPolicies() error {
 		np.SetUID("")
 		np.SetGeneration(0)
 		np.SetManagedFields(nil)
-		np.SetCreationTimestamp(timev1.Time{})
+		np.SetCreationTimestamp(metav1.Time{})
 		np.SetResourceVersion("")
 		annotations := np.GetAnnotations()
 		delete(annotations, "kubectl.kubernetes.io/last-applied-configuration")
@@ -321,7 +321,7 @@ func (cr *CustomRepo) addAntreaTiers() error {
 		tier.SetUID("")
 		tier.SetGeneration(0)
 		tier.SetManagedFields(nil)
-		tier.SetCreationTimestamp(timev1.Time{})
+		tier.SetCreationTimestamp(metav1.Time{})
 		tier.SetResourceVersion("")
 		annotations := tier.GetAnnotations()
 		delete(annotations, "kubectl.kubernetes.io/last-applied-configuration")

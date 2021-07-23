@@ -170,6 +170,7 @@ func (cr *CustomRepo) createOrUpdateResourceByPath(path string) error {
 	}
 	if apiVersion == "networking.k8s.io/v1" {
 		resource := &netv1.NetworkPolicy{}
+		//resource := &unstructured.Unstructured{}
 		cr.getResource(resource, path)
 		if err := cr.K8s.CreateOrUpdateK8sPolicy(resource); err != nil {
 			klog.ErrorS(err, "unable to create/update K8s network policy during rollback")

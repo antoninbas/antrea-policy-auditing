@@ -39,6 +39,7 @@ func events(w http.ResponseWriter, r *http.Request, cr *gitops.CustomRepo) {
 	klog.V(3).Infof("Audit received: %s", string(body))
 	if err := cr.HandleEventList(body); err != nil {
 		if err.Error() == "rollback-in-progress" {
+			klog.ErrorS(err, "audit received during rollback")
 			w.WriteHeader(http.StatusServiceUnavailable)
 		} else {
 			klog.ErrorS(err, "unable to process audit event list")
@@ -98,11 +99,11 @@ func rollback(w http.ResponseWriter, r *http.Request, cr *gitops.CustomRepo) {
 		w.WriteHeader(http.StatusBadRequest)
 	}
 	//TODO: process input as tag or commit hash based on flag?
-	commit, _ := cr.TagToCommit(rollbackRequest.tag)
-	if err := cr.RollbackRepo(commit); err != nil {
-		klog.ErrorS(err, "failed to rollback repo")
-		w.WriteHeader(http.StatusInternalServerError)
-	}
+	//commit, _ := cr.TagToCommit(rollbackRequest.tag)
+	// if err := cr.RollbackRepo(commit); err != nil {
+	// 	klog.ErrorS(err, "failed to rollback repo")
+	// 	w.WriteHeader(http.StatusInternalServerError)
+	// }
 }
 
 func ReceiveEvents(port string, cr *gitops.CustomRepo) error {
