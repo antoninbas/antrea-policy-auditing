@@ -19,7 +19,7 @@ type Change struct {
 	Message string `json:"Message"`
 }
 
-type filters struct {
+type Filters struct {
 	Author   string    `json:"author"`
 	Since    time.Time `json:"since"`
 	Until    time.Time `json:"until"`
@@ -64,16 +64,31 @@ func changes(w http.ResponseWriter, r *http.Request, cr *gitops.CustomRepo) {
 		w.WriteHeader(http.StatusBadRequest)
 	}
 	klog.V(3).Infof("Filters received: %s", string(body))
-	filts := filters{}
-	if err := json.Unmarshal(body, &filts); err != nil {
-		klog.ErrorS(err, "unable to marshal request body")
-		w.WriteHeader(http.StatusBadRequest)
-	}
-	commits, err := cr.FilterCommits(&filts.Author, &filts.Since, &filts.Until, &filts.FileName)
+
+    filts := r.URL.Query()
+    layout := "2006-01-02T15:04:05.000Z"
+    author := ""
+    if len(filts["author"]) > 0 {
+        author = filts["author"][0]
+    }
+    since := time.Time{}
+    if len(filts["since"]) > 0 {
+        since, _ = time.Parse(layout, filts["since"][0])
+    }
+    until := time.Time{}
+    if len(filts["until"]) > 0 {
+        until, _ = time.Parse(layout, filts["until"][0])
+    }
+    filename := ""
+    if len(filts["filename"]) > 0 {
+        author = filts["filename"][0]
+    }
+	commits, err := cr.FilterCommits(&author, &since, &until, &filename)
 	if err != nil {
 		klog.ErrorS(err, "unable to process audit event list")
 		w.WriteHeader(http.StatusBadRequest)
 	}
+
 	var changes []Change
 	for _, c := range commits {
 		chg := Change{}
