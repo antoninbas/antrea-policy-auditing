@@ -9,6 +9,8 @@ import (
 	"antrea-audit/gitops"
 
 	"k8s.io/klog/v2"
+	
+	//"github.com/go-git/go-git/v5/plumbing/object"
 )
 
 type Change struct {
@@ -25,8 +27,14 @@ type filters struct {
 }
 
 type rollbackRequest struct {
-	tag string
+	Tag string
 	//TargetCommit *object.Commit `json:"commit"`
+}
+
+type tagRequest struct {
+	Tag string
+	Sha string
+	//Signature *object.Signature
 }
 
 func events(w http.ResponseWriter, r *http.Request, cr *gitops.CustomRepo) {
@@ -98,10 +106,27 @@ func rollback(w http.ResponseWriter, r *http.Request, cr *gitops.CustomRepo) {
 		klog.ErrorS(err, "unable to marshal request body")
 		w.WriteHeader(http.StatusBadRequest)
 	}
-	//TODO: process input as tag or commit hash based on flag?
-	//commit, _ := cr.TagToCommit(rollbackRequest.tag)
+	// commit, _ := cr.TagToCommit(rollbackRequest.Tag)
 	// if err := cr.RollbackRepo(commit); err != nil {
 	// 	klog.ErrorS(err, "failed to rollback repo")
+	// 	w.WriteHeader(http.StatusInternalServerError)
+	// }
+}
+
+func tag(w http.ResponseWriter, r *http.Request, cr *gitops.CustomRepo) {
+	defer r.Body.Close()
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		klog.ErrorS(err, "unable to read audit body")
+		w.WriteHeader(http.StatusBadRequest)
+	}
+	tagRequest := tagRequest{}
+	if err := json.Unmarshal(body, &tagRequest); err != nil {
+		klog.ErrorS(err, "unable to marshal request body")
+		w.WriteHeader(http.StatusBadRequest)
+	}
+	// if err := cr.TagCommit(tagRequest.Sha, tagRequest.Tag, tagRequest.Signature); err != nil {
+	// 	klog.ErrorS(err, "failed to tag commit")
 	// 	w.WriteHeader(http.StatusInternalServerError)
 	// }
 }

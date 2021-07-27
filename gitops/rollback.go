@@ -10,10 +10,9 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"k8s.io/klog/v2"
 
-	v1alpha1 "antrea.io/antrea/pkg/apis/crd/v1alpha1"
-	netv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 func (cr *CustomRepo) TagToCommit(tag string) (*object.Commit, error) {
@@ -49,10 +48,10 @@ func (cr *CustomRepo) HashToCommit(commitSha string) *object.Commit {
 }
 
 func (cr *CustomRepo) RollbackRepo(targetCommit *object.Commit) error {
-	klog.V(2).Infof("Rollback to commit %s initiated, ignoring all non-rollback generated audits",
-		targetCommit.Hash.String())
 	cr.Mutex.Lock()
 	defer cr.Mutex.Unlock()
+	klog.V(2).Infof("Rollback to commit %s initiated, ignoring all non-rollback generated audits",
+		targetCommit.Hash.String())
 	cr.RollbackMode = true
 	// Get patch between head and target commit
 	w, err := cr.Repo.Worktree()
@@ -138,11 +137,17 @@ func (cr *CustomRepo) doDeletePatch(patch *object.Patch) error {
 	for _, filePatch := range patch.FilePatches() {
 		fromFile, toFile := filePatch.Files()
 		if toFile == nil {
-			if err := cr.deleteResourceByPath(cr.Dir + "/" + fromFile.Path()); err != nil {
-				klog.ErrorS(err, "unable to delete resource during rollback")
+			path := cr.Dir + "/" + fromFile.Path()
+			resource, err := cr.getResourceByPath(path)
+			if err != nil {
+				klog.Errorf("unable to read resource at path %s", path)
 				return err
 			}
-			klog.V(2).Infof("(Rollback) Deleted file at %s", cr.Dir+"/"+fromFile.Path())
+			if err := cr.K8s.DeleteResource(resource); err != nil {
+				klog.Errorf("unable to delete resource %s", resource.GetName())
+				return err
+			}
+			klog.V(2).Infof("(Rollback) Deleted file at %s", path)
 		}
 	}
 	return nil
@@ -152,112 +157,50 @@ func (cr *CustomRepo) doCreateUpdatePatch(patch *object.Patch) error {
 	for _, filePatch := range patch.FilePatches() {
 		_, toFile := filePatch.Files()
 		if toFile != nil {
-			if err := cr.createOrUpdateResourceByPath(cr.Dir + "/" + toFile.Path()); err != nil {
-				klog.ErrorS(err, "unable to create/update new resouce during rollback")
+			path := cr.Dir + "/" + toFile.Path()
+			resource, err := cr.getResourceByPath(path)
+			if err != nil {
+				klog.Errorf("unable to read resource at path %s", path)
 				return err
 			}
-			klog.V(2).Infof("(Rollback) Created/Updated file at %s", cr.Dir+"/"+toFile.Path())
+			if err := cr.K8s.CreateOrUpdateResource(resource); err != nil {
+				klog.Errorf("unable to create/update resource %s", resource.GetName())
+				return err
+			}
+			klog.V(2).Infof("(Rollback) Created/Updated file at %s", path)
 		}
 	}
 	return nil
 }
 
-func (cr *CustomRepo) createOrUpdateResourceByPath(path string) error {
-	apiVersion, kind, err := cr.getMetadata(path)
+func (cr *CustomRepo) getResourceByPath(path string) (*unstructured.Unstructured, error) {
+	apiVersion, kind, err := cr.readMetadata(path)
 	if err != nil {
 		klog.ErrorS(err, "error while retrieving metadata from file")
-		return err
+		return nil, err
+	}
+	resource := &unstructured.Unstructured{}
+	gvk := schema.GroupVersionKind{}
+	if err := cr.readResource(resource, path); err != nil {
+		klog.ErrorS(err, "unable to read resource")
+		return nil, err
 	}
 	if apiVersion == "networking.k8s.io/v1" {
-		resource := &netv1.NetworkPolicy{}
-		//resource := &unstructured.Unstructured{}
-		cr.getResource(resource, path)
-		if err := cr.K8s.CreateOrUpdateK8sPolicy(resource); err != nil {
-			klog.ErrorS(err, "unable to create/update K8s network policy during rollback")
-			return err
-		}
+		gvk.Group = "networking.k8s.io"
+		gvk.Version = "v1"
 	} else if apiVersion == "crd.antrea.io/v1alpha1" {
-		switch kind {
-		case "NetworkPolicy":
-			resource := &v1alpha1.NetworkPolicy{}
-			cr.getResource(resource, path)
-			if err := cr.K8s.CreateOrUpdateAntreaPolicy(resource); err != nil {
-				klog.ErrorS(err, "unable to create/update Antrea network policy during rollback")
-				return err
-			}
-		case "ClusterNetworkPolicy":
-			resource := &v1alpha1.ClusterNetworkPolicy{}
-			cr.getResource(resource, path)
-			if err := cr.K8s.CreateOrUpdateAntreaClusterPolicy(resource); err != nil {
-				klog.ErrorS(err, "unable to create/update Antrea cluster network policy during rollback")
-				return err
-			}
-		case "Tier":
-			resource := &v1alpha1.Tier{}
-			cr.getResource(resource, path)
-			if err := cr.K8s.CreateOrUpdateAntreaTier(resource); err != nil {
-				klog.ErrorS(err, "unable to create/update Antrea tier during rollback")
-				return err
-			}
-		default:
-			klog.ErrorS(err, "unknown kind found", "kind", kind)
-			return err
-		}
+		gvk.Group = "crd.antrea.io"
+		gvk.Version = "v1alpha1"
 	} else {
 		klog.ErrorS(err, "unknown apiVersion found", "version", apiVersion)
-		return err
+		return nil, err
 	}
-	return nil
+	gvk.Kind = kind
+	resource.SetGroupVersionKind(gvk)
+	return resource, nil
 }
 
-func (cr *CustomRepo) deleteResourceByPath(path string) error {
-	apiVersion, kind, err := cr.getMetadata(path)
-	if err != nil {
-		klog.ErrorS(err, "error while retrieving metadata from file")
-		return err
-	}
-	if apiVersion == "networking.k8s.io/v1" {
-		resource := &netv1.NetworkPolicy{}
-		cr.getResource(resource, path)
-		if err := cr.K8s.DeleteK8sPolicy(resource); err != nil {
-			klog.ErrorS(err, "unable to delete K8s network policy during rollback")
-			return err
-		}
-	} else if apiVersion == "crd.antrea.io/v1alpha1" {
-		switch kind {
-		case "NetworkPolicy":
-			resource := &v1alpha1.NetworkPolicy{}
-			cr.getResource(resource, path)
-			if err := cr.K8s.DeleteAntreaPolicy(resource); err != nil {
-				klog.ErrorS(err, "unable to delete Antrea network policy during rollback")
-				return err
-			}
-		case "ClusterNetworkPolicy":
-			resource := &v1alpha1.ClusterNetworkPolicy{}
-			cr.getResource(resource, path)
-			if err := cr.K8s.DeleteAntreaClusterPolicy(resource); err != nil {
-				klog.ErrorS(err, "unable to delete Antrea cluster network policy during rollback")
-				return err
-			}
-		case "Tier":
-			resource := &v1alpha1.Tier{}
-			cr.getResource(resource, path)
-			if err := cr.K8s.DeleteAntreaTier(resource); err != nil {
-				klog.ErrorS(err, "unable to delete Antrea tier during rollback")
-				return err
-			}
-		default:
-			klog.ErrorS(err, "unknown resource kind found", "kind", kind)
-			return err
-		}
-	} else {
-		klog.ErrorS(err, "unknown apiVersion found", "version", apiVersion)
-		return err
-	}
-	return nil
-}
-
-func (cr *CustomRepo) getMetadata(path string) (string, string, error) {
+func (cr *CustomRepo) readMetadata(path string) (string, string, error) {
 	meta := metav1.TypeMeta{}
 	var y []byte
 	if cr.StorageMode == StorageModeDisk {
@@ -284,7 +227,7 @@ func (cr *CustomRepo) getMetadata(path string) (string, string, error) {
 	return meta.APIVersion, meta.Kind, nil
 }
 
-func (cr *CustomRepo) getResource(resource runtime.Object, path string) {
+func (cr *CustomRepo) readResource(resource *unstructured.Unstructured, path string) error {
 	var y []byte
 	if cr.StorageMode == StorageModeDisk {
 		y, _ = ioutil.ReadFile(path)
@@ -294,17 +237,18 @@ func (cr *CustomRepo) getResource(resource runtime.Object, path string) {
 		f, err := cr.Fs.Open(path)
 		if err != nil {
 			klog.ErrorS(err, "error opening file")
-			return
+			return err
 		}
 		f.Read(y)
 	}
 	j, err := yaml.YAMLToJSON(y)
 	if err != nil {
 		klog.ErrorS(err, "error converting from YAML to JSON")
-		return
+		return err
 	}
-	if err := json.Unmarshal(j, resource); err != nil {
+	if err := json.Unmarshal(j, &resource.Object); err != nil {
 		klog.ErrorS(err, "error while unmarshalling from file")
-		return
+		return err
 	}
+	return nil
 }

@@ -43,6 +43,7 @@ func (cr *CustomRepo) HandleEventList(jsonstring []byte) error {
 				klog.ErrorS(err, "unable to add/commit change")
 				return err
 			}
+			klog.V(2).Infof("Successfully created resource: %s", message)
 		case "patch":
 			if err := cr.modifyFile(event); err != nil {
 				klog.ErrorS(err, "unable to update resource")

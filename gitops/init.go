@@ -20,14 +20,15 @@ import (
 )
 
 type StorageModeType string
+
 const (
-    StorageModeDisk StorageModeType = "Disk"
-    StorageModeInMemory StorageModeType = "InMemory"
+	StorageModeDisk     StorageModeType = "Disk"
+	StorageModeInMemory StorageModeType = "InMemory"
 )
 
 type CustomRepo struct {
 	Repo           *git.Repository
-	K8s            *KubeClients
+	K8s            *K8sClient
 	RollbackMode   bool
 	StorageMode    StorageModeType
 	ServiceAccount string
@@ -36,7 +37,7 @@ type CustomRepo struct {
 	Mutex          sync.Mutex
 }
 
-func SetupRepo(k *KubeClients, mode StorageModeType, dir string) (*CustomRepo, error) {
+func SetupRepo(k8s *K8sClient, mode StorageModeType, dir string) (*CustomRepo, error) {
 	if mode != StorageModeDisk && mode != StorageModeInMemory {
 		tmp := errors.New("mode must be memory(mem) or disk(disk)")
 		klog.ErrorS(tmp, "incorrect mode")
@@ -46,7 +47,7 @@ func SetupRepo(k *KubeClients, mode StorageModeType, dir string) (*CustomRepo, e
 	fs := memfs.New()
 	svcAcct := "system:serviceaccount:" + GetAuditPodNamespace() + ":" + GetAuditServiceAccount()
 	cr := CustomRepo{
-		K8s:            k,	
+		K8s:            k8s,
 		RollbackMode:   false,
 		StorageMode:    mode,
 		ServiceAccount: svcAcct,
@@ -149,9 +150,9 @@ func (cr *CustomRepo) addResources() error {
 func (cr *CustomRepo) addK8sPolicies() error {
 	list := &unstructured.UnstructuredList{}
 	list.SetGroupVersionKind(schema.GroupVersionKind{
-		Group: "networking.k8s.io",
+		Group:   "networking.k8s.io",
 		Version: "v1",
-		Kind: "NetworkPolicyList",
+		Kind:    "NetworkPolicyList",
 	})
 	policies, err := cr.K8s.ListResource(list)
 	if err != nil {
@@ -159,15 +160,7 @@ func (cr *CustomRepo) addK8sPolicies() error {
 	}
 	var namespaces []string
 	for _, np := range policies.Items {
-		np.SetUID("")
-		np.SetGeneration(0)
-		np.SetManagedFields(nil)
-		np.SetCreationTimestamp(metav1.Time{})
-		np.SetResourceVersion("")
-		annotations := np.GetAnnotations()
-		delete(annotations, "kubectl.kubernetes.io/last-applied-configuration")
-		np.SetAnnotations(annotations)
-		
+		clearFields(&np)
 		name := np.GetName()
 		namespace := np.GetNamespace()
 		if !StringInSlice(namespace, namespaces) {
@@ -179,7 +172,6 @@ func (cr *CustomRepo) addK8sPolicies() error {
 			}
 		}
 		path := cr.Dir + "/k8s-policies/" + namespace + "/" + name + ".yaml"
-		klog.V(2).Infof("Added K8s policy at resource-auditing-repo/k8s-policies/" + namespace + "/" + name + ".yaml")
 		y, err := yaml.Marshal(&np)
 		if err != nil {
 			klog.ErrorS(err, "unable to marshal policy config")
@@ -200,6 +192,7 @@ func (cr *CustomRepo) addK8sPolicies() error {
 			newFile.Write(y)
 			newFile.Close()
 		}
+		klog.V(2).Infof("Added K8s policy at resource-auditing-repo/k8s-policies/" + namespace + "/" + name + ".yaml")
 	}
 	return nil
 }
@@ -207,9 +200,9 @@ func (cr *CustomRepo) addK8sPolicies() error {
 func (cr *CustomRepo) addAntreaPolicies() error {
 	list := &unstructured.UnstructuredList{}
 	list.SetGroupVersionKind(schema.GroupVersionKind{
-		Group: "crd.antrea.io",
+		Group:   "crd.antrea.io",
 		Version: "v1alpha1",
-		Kind: "NetworkPolicyList",
+		Kind:    "NetworkPolicyList",
 	})
 	policies, err := cr.K8s.ListResource(list)
 	if err != nil {
@@ -217,15 +210,7 @@ func (cr *CustomRepo) addAntreaPolicies() error {
 	}
 	var namespaces []string
 	for _, np := range policies.Items {
-		np.SetUID("")
-		np.SetGeneration(0)
-		np.SetManagedFields(nil)
-		np.SetCreationTimestamp(metav1.Time{})
-		np.SetResourceVersion("")
-		annotations := np.GetAnnotations()
-		delete(annotations, "kubectl.kubernetes.io/last-applied-configuration")
-		np.SetAnnotations(annotations)
-		
+		clearFields(&np)
 		name := np.GetName()
 		namespace := np.GetNamespace()
 		if !StringInSlice(namespace, namespaces) {
@@ -233,7 +218,6 @@ func (cr *CustomRepo) addAntreaPolicies() error {
 			os.Mkdir(cr.Dir+"/antrea-policies/"+namespace, 0700)
 		}
 		path := cr.Dir + "/antrea-policies/" + namespace + "/" + name + ".yaml"
-		klog.V(2).Infof("Added Antrea policy at resource-auditing-repo/antrea-policies/" + namespace + "/" + name + ".yaml")
 		y, err := yaml.Marshal(&np)
 		if err != nil {
 			klog.ErrorS(err, "unable to marshal policy config")
@@ -254,6 +238,7 @@ func (cr *CustomRepo) addAntreaPolicies() error {
 			newFile.Write(y)
 			newFile.Close()
 		}
+		klog.V(2).Infof("Added Antrea policy at resource-auditing-repo/antrea-policies/" + namespace + "/" + name + ".yaml")
 	}
 	return nil
 }
@@ -261,27 +246,18 @@ func (cr *CustomRepo) addAntreaPolicies() error {
 func (cr *CustomRepo) addAntreaClusterPolicies() error {
 	list := &unstructured.UnstructuredList{}
 	list.SetGroupVersionKind(schema.GroupVersionKind{
-		Group: "crd.antrea.io",
+		Group:   "crd.antrea.io",
 		Version: "v1alpha1",
-		Kind: "ClusterNetworkPolicyList",
+		Kind:    "ClusterNetworkPolicyList",
 	})
 	policies, err := cr.K8s.ListResource(list)
 	if err != nil {
 		return err
 	}
 	for _, np := range policies.Items {
-		np.SetUID("")
-		np.SetGeneration(0)
-		np.SetManagedFields(nil)
-		np.SetCreationTimestamp(metav1.Time{})
-		np.SetResourceVersion("")
-		annotations := np.GetAnnotations()
-		delete(annotations, "kubectl.kubernetes.io/last-applied-configuration")
-		np.SetAnnotations(annotations)
-		
+		clearFields(&np)
 		name := np.GetName()
 		path := cr.Dir + "/antrea-cluster-policies/" + name + ".yaml"
-		klog.V(2).Infof("Added Antrea cluster policy at resource-auditing-repo/antrea-cluster-policies/" + name + ".yaml")
 		y, err := yaml.Marshal(&np)
 		if err != nil {
 			klog.ErrorS(err, "unable to marshal policy config")
@@ -302,6 +278,7 @@ func (cr *CustomRepo) addAntreaClusterPolicies() error {
 			newFile.Write(y)
 			newFile.Close()
 		}
+		klog.V(2).Infof("Added Antrea cluster policy at resource-auditing-repo/antrea-cluster-policies/" + name + ".yaml")
 	}
 	return nil
 }
@@ -309,27 +286,18 @@ func (cr *CustomRepo) addAntreaClusterPolicies() error {
 func (cr *CustomRepo) addAntreaTiers() error {
 	list := &unstructured.UnstructuredList{}
 	list.SetGroupVersionKind(schema.GroupVersionKind{
-		Group: "crd.antrea.io",
+		Group:   "crd.antrea.io",
 		Version: "v1alpha1",
-		Kind: "TierList",
+		Kind:    "TierList",
 	})
 	tiers, err := cr.K8s.ListResource(list)
 	if err != nil {
 		return err
 	}
 	for _, tier := range tiers.Items {
-		tier.SetUID("")
-		tier.SetGeneration(0)
-		tier.SetManagedFields(nil)
-		tier.SetCreationTimestamp(metav1.Time{})
-		tier.SetResourceVersion("")
-		annotations := tier.GetAnnotations()
-		delete(annotations, "kubectl.kubernetes.io/last-applied-configuration")
-		tier.SetAnnotations(annotations)
-		
+		clearFields(&tier)
 		name := tier.GetName()
 		path := cr.Dir + "/antrea-tiers/" + name + ".yaml"
-		klog.V(2).Infof("Added Antrea tier at resource-auditing-repo/antrea-tiers/" + name + ".yaml")
 		y, err := yaml.Marshal(&tier)
 		if err != nil {
 			klog.ErrorS(err, "unable to marshal tier config")
@@ -350,6 +318,19 @@ func (cr *CustomRepo) addAntreaTiers() error {
 			newFile.Write(y)
 			newFile.Close()
 		}
+		klog.V(2).Infof("Added Antrea tier at resource-auditing-repo/antrea-tiers/" + name + ".yaml")
 	}
 	return nil
+}
+
+func clearFields(resource *unstructured.Unstructured) {
+	resource.SetUID("")
+	resource.SetGeneration(0)
+	resource.SetManagedFields(nil)
+	resource.SetCreationTimestamp(metav1.Time{})
+	resource.SetResourceVersion("")
+	annotations := resource.GetAnnotations()
+	delete(annotations, "kubectl.kubernetes.io/last-applied-configuration")
+	resource.SetAnnotations(annotations)
+	delete(resource.Object, "status")
 }
