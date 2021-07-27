@@ -13,7 +13,6 @@ import (
 	billy "github.com/go-git/go-billy/v5"
 	memfs "github.com/go-git/go-billy/v5/memfs"
 	memory "github.com/go-git/go-git/v5/storage/memory"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -163,7 +162,7 @@ func (cr *CustomRepo) addK8sPolicies() error {
 		clearFields(&np)
 		name := np.GetName()
 		namespace := np.GetNamespace()
-		if !StringInSlice(namespace, namespaces) {
+		if !stringInSlice(namespace, namespaces) {
 			namespaces = append(namespaces, namespace)
 			if cr.StorageMode == StorageModeDisk {
 				os.Mkdir(cr.Dir+"/k8s-policies/"+namespace, 0700)
@@ -213,7 +212,7 @@ func (cr *CustomRepo) addAntreaPolicies() error {
 		clearFields(&np)
 		name := np.GetName()
 		namespace := np.GetNamespace()
-		if !StringInSlice(namespace, namespaces) {
+		if !stringInSlice(namespace, namespaces) {
 			namespaces = append(namespaces, namespace)
 			os.Mkdir(cr.Dir+"/antrea-policies/"+namespace, 0700)
 		}
@@ -321,16 +320,4 @@ func (cr *CustomRepo) addAntreaTiers() error {
 		klog.V(2).Infof("Added Antrea tier at resource-auditing-repo/antrea-tiers/" + name + ".yaml")
 	}
 	return nil
-}
-
-func clearFields(resource *unstructured.Unstructured) {
-	resource.SetUID("")
-	resource.SetGeneration(0)
-	resource.SetManagedFields(nil)
-	resource.SetCreationTimestamp(metav1.Time{})
-	resource.SetResourceVersion("")
-	annotations := resource.GetAnnotations()
-	delete(annotations, "kubectl.kubernetes.io/last-applied-configuration")
-	resource.SetAnnotations(annotations)
-	delete(resource.Object, "status")
 }
