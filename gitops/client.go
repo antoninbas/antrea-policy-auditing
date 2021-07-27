@@ -45,34 +45,34 @@ func NewKubernetes() (*K8sClient, error) {
 
 func registerTypes(scheme *runtime.Scheme) {
 	scheme.AddKnownTypeWithName(schema.GroupVersionKind{
-		Group: "networking.k8s.io", 
-		Version: "v1", 
-		Kind: "NetworkPolicyList"}, 
+		Group:   "networking.k8s.io",
+		Version: "v1",
+		Kind:    "NetworkPolicyList"},
 		&networking.NetworkPolicyList{})
 	scheme.AddKnownTypeWithName(schema.GroupVersionKind{
-		Group: "networking.k8s.io", 
-		Version: "v1", 
-		Kind: "ListOptions"}, 
-		&metav1.ListOptions{})	
+		Group:   "networking.k8s.io",
+		Version: "v1",
+		Kind:    "ListOptions"},
+		&metav1.ListOptions{})
 	scheme.AddKnownTypeWithName(schema.GroupVersionKind{
-		Group: "crd.antrea.io", 
-		Version: "v1alpha1", 
-		Kind: "NetworkPolicyList"}, 
+		Group:   "crd.antrea.io",
+		Version: "v1alpha1",
+		Kind:    "NetworkPolicyList"},
 		&v1alpha1.NetworkPolicyList{})
 	scheme.AddKnownTypeWithName(schema.GroupVersionKind{
-		Group: "crd.antrea.io", 
-		Version: "v1alpha1", 
-		Kind: "ClusterNetworkPolicyList"}, 
+		Group:   "crd.antrea.io",
+		Version: "v1alpha1",
+		Kind:    "ClusterNetworkPolicyList"},
 		&v1alpha1.ClusterNetworkPolicyList{})
 	scheme.AddKnownTypeWithName(schema.GroupVersionKind{
-		Group: "crd.antrea.io", 
-		Version: "v1alpha1", 
-		Kind: "TierList"}, 
+		Group:   "crd.antrea.io",
+		Version: "v1alpha1",
+		Kind:    "TierList"},
 		&v1alpha1.TierList{})
 	scheme.AddKnownTypeWithName(schema.GroupVersionKind{
-		Group: "crd.antrea.io", 
-		Version: "v1alpha1", 
-		Kind: "ListOptions"},
+		Group:   "crd.antrea.io",
+		Version: "v1alpha1",
+		Kind:    "ListOptions"},
 		&metav1.ListOptions{})
 }
 
@@ -94,7 +94,7 @@ func (k *K8sClient) CreateOrUpdateResource(resource *unstructured.Unstructured) 
 	oldResource := &unstructured.Unstructured{}
 	_ = k.Client.Get(context.TODO(), client.ObjectKey{
 		Namespace: resource.GetNamespace(),
-		Name: resource.GetName(),
+		Name:      resource.GetName(),
 	}, oldResource)
 	resource.SetResourceVersion(oldResource.GetResourceVersion())
 	if err := k.Client.Update(context.TODO(), resource); err != nil {

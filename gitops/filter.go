@@ -9,39 +9,39 @@ import (
 )
 
 func (cr *CustomRepo) FilterCommits(author *string, since *time.Time, until *time.Time, policyResourceName *string) ([]object.Commit, error) {
-    var logopts git.LogOptions
-    var filteredCommits []object.Commit
+	var logopts git.LogOptions
+	var filteredCommits []object.Commit
 
-    cr.Mutex.Lock()
-    defer cr.Mutex.Unlock()
-    ref, err := cr.Repo.Head()
-    if err != nil {
-        klog.ErrorS(err, "unable to get ref head from repository")
-        return filteredCommits, err
-    }
+	cr.Mutex.Lock()
+	defer cr.Mutex.Unlock()
+	ref, err := cr.Repo.Head()
+	if err != nil {
+		klog.ErrorS(err, "unable to get ref head from repository")
+		return filteredCommits, err
+	}
 
-    logopts.From = ref.Hash()
-    if !since.IsZero() && since != nil {
-        logopts.Since = since
-    }
-    if !since.IsZero() && until != nil {
-        logopts.Until = until
-    }
-    if !(*policyResourceName == "") {
-        logopts.FileName = policyResourceName
-    }
+	logopts.From = ref.Hash()
+	if !since.IsZero() && since != nil {
+		logopts.Since = since
+	}
+	if !since.IsZero() && until != nil {
+		logopts.Until = until
+	}
+	if !(*policyResourceName == "") {
+		logopts.FileName = policyResourceName
+	}
 
-    cIter, err := cr.Repo.Log(&logopts)
-    if err != nil {
-        klog.ErrorS(err, "unable get logs from repository")
-        return filteredCommits, err
-    }
+	cIter, err := cr.Repo.Log(&logopts)
+	if err != nil {
+		klog.ErrorS(err, "unable get logs from repository")
+		return filteredCommits, err
+	}
 
-    err = cIter.ForEach(func(c *object.Commit) error {
-        if *author == "" || c.Author.Name == *author {
-            filteredCommits = append(filteredCommits, *c)
-        }
-        return nil
-    })
-    return filteredCommits, err
+	err = cIter.ForEach(func(c *object.Commit) error {
+		if *author == "" || c.Author.Name == *author {
+			filteredCommits = append(filteredCommits, *c)
+		}
+		return nil
+	})
+	return filteredCommits, err
 }
