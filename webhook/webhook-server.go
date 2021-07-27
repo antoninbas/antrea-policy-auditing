@@ -9,6 +9,8 @@ import (
 	"antrea-audit/gitops"
 
 	"k8s.io/klog/v2"
+	
+	//"github.com/go-git/go-git/v5/plumbing/object"
 )
 
 type Change struct {
@@ -25,8 +27,14 @@ type Filters struct {
 }
 
 type rollbackRequest struct {
-	tag string
+	Tag string
 	//TargetCommit *object.Commit `json:"commit"`
+}
+
+type tagRequest struct {
+	Tag string
+	Sha string
+	//Signature *object.Signature
 }
 
 func events(w http.ResponseWriter, r *http.Request, cr *gitops.CustomRepo) {
@@ -39,6 +47,7 @@ func events(w http.ResponseWriter, r *http.Request, cr *gitops.CustomRepo) {
 	klog.V(3).Infof("Audit received: %s", string(body))
 	if err := cr.HandleEventList(body); err != nil {
 		if err.Error() == "rollback-in-progress" {
+			klog.ErrorS(err, "audit received during rollback")
 			w.WriteHeader(http.StatusServiceUnavailable)
 		} else {
 			klog.ErrorS(err, "unable to process audit event list")
@@ -112,12 +121,29 @@ func rollback(w http.ResponseWriter, r *http.Request, cr *gitops.CustomRepo) {
 		klog.ErrorS(err, "unable to marshal request body")
 		w.WriteHeader(http.StatusBadRequest)
 	}
-	//TODO: process input as tag or commit hash based on flag?
-	commit, _ := cr.TagToCommit(rollbackRequest.tag)
-	if err := cr.RollbackRepo(commit); err != nil {
-		klog.ErrorS(err, "failed to rollback repo")
-		w.WriteHeader(http.StatusInternalServerError)
+	// commit, _ := cr.TagToCommit(rollbackRequest.Tag)
+	// if err := cr.RollbackRepo(commit); err != nil {
+	// 	klog.ErrorS(err, "failed to rollback repo")
+	// 	w.WriteHeader(http.StatusInternalServerError)
+	// }
+}
+
+func tag(w http.ResponseWriter, r *http.Request, cr *gitops.CustomRepo) {
+	defer r.Body.Close()
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		klog.ErrorS(err, "unable to read audit body")
+		w.WriteHeader(http.StatusBadRequest)
 	}
+	tagRequest := tagRequest{}
+	if err := json.Unmarshal(body, &tagRequest); err != nil {
+		klog.ErrorS(err, "unable to marshal request body")
+		w.WriteHeader(http.StatusBadRequest)
+	}
+	// if err := cr.TagCommit(tagRequest.Sha, tagRequest.Tag, tagRequest.Signature); err != nil {
+	// 	klog.ErrorS(err, "failed to tag commit")
+	// 	w.WriteHeader(http.StatusInternalServerError)
+	// }
 }
 
 func ReceiveEvents(port string, cr *gitops.CustomRepo) error {

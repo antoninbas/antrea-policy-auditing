@@ -1,11 +1,11 @@
 package gitops
 
 import (
-    "time"
+	"time"
 
-    "github.com/go-git/go-git/v5"
-    "github.com/go-git/go-git/v5/plumbing/object"
-    "k8s.io/klog/v2"
+	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing/object"
+	"k8s.io/klog/v2"
 )
 
 func (cr *CustomRepo) FilterCommits(author *string, since *time.Time, until *time.Time, policyResourceName *string) ([]object.Commit, error) {
