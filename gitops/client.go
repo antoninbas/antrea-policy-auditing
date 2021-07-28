@@ -120,7 +120,7 @@ func (k *K8sClient) ListResource(resourceList *unstructured.UnstructuredList) (*
 
 func (k *K8sClient) CreateOrUpdateResource(resource *unstructured.Unstructured) error {
 	if err := k.Client.Create(context.TODO(), resource); err == nil {
-		klog.V(2).Infof("created resource %s", resource.GetName())
+		klog.Infof("created resource %s", resource.GetName())
 		return nil
 	} else if errors.IsAlreadyExists(err) {
 		klog.Infof("resource %s already exists, trying update instead", resource.GetName())
@@ -149,6 +149,6 @@ func (k *K8sClient) DeleteResource(resource *unstructured.Unstructured) error {
 		klog.Errorf("unable to delete resource %s", resource.GetName())
 		return err
 	}
-	klog.V(2).Infof("deleted k8s network policy %s", resource.GetName())
+	klog.Infof("deleted k8s network policy %s", resource.GetName())
 	return nil
 }

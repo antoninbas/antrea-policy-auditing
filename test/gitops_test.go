@@ -9,6 +9,8 @@ import (
 
 	"antrea-audit/gitops"
 
+	"github.com/fatih/structs"
+
 	crdv1alpha1 "antrea.io/antrea/pkg/apis/crd/v1alpha1"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/stretchr/testify/assert"
@@ -294,8 +296,6 @@ func TestRollback(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error (TestRollback): unable to get antrea policy after rollback")
 	}
-<<<<<<< HEAD
-=======
 	assert.Equal(t, 1, len(antreaPolicies.Items),
 		"Error (TestRollback): unexpected number of antrea policies after rollback")
 }
@@ -307,5 +307,4 @@ func SetupMemRepo(storer *memory.Storage, fs billy.Filesystem) error {
 	fs.MkdirAll("antrea-cluster-policies", 0700)
 	fs.MkdirAll("antrea-tiers", 0700)
 	return err
->>>>>>> 8c11949 (more cli changes)
 }
