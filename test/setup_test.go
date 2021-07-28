@@ -7,13 +7,13 @@ import (
 	"antrea-audit/gitops"
 
 	crdv1alpha1 "antrea.io/antrea/pkg/apis/crd/v1alpha1"
-	fakeversioned "antrea.io/antrea/pkg/client/clientset/versioned/fake"
 	"github.com/stretchr/testify/assert"
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	fake "k8s.io/client-go/kubernetes/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 type test_resource struct {
@@ -46,7 +46,6 @@ var (
 `apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  creationTimestamp: null
   name: npA
   namespace: nsA
 spec:
@@ -72,7 +71,6 @@ spec:
 `apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  creationTimestamp: null
   name: npB
   namespace: nsA
 spec:
@@ -126,7 +124,6 @@ spec:
 `apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  creationTimestamp: null
   name: npC
   namespace: nsB
 spec:
@@ -203,7 +200,6 @@ spec:
 `apiVersion: crd.antrea.io/v1alpha1
 kind: NetworkPolicy
 metadata:
-  creationTimestamp: null
   name: anpA
   namespace: nsA
 spec:
@@ -240,11 +236,6 @@ spec:
     - port: 80
     to: null
   priority: 10
-status:
-  currentNodesRealized: 0
-  desiredNodesRealized: 0
-  observedGeneration: 0
-  phase: ""
 `,
 	}
 	Acnp1 = test_resource{
@@ -295,7 +286,6 @@ status:
 `apiVersion: crd.antrea.io/v1alpha1
 kind: ClusterNetworkPolicy
 metadata:
-  creationTimestamp: null
   name: cnpA
 spec:
   appliedTo:
@@ -331,11 +321,6 @@ spec:
     - port: 80
     to: null
   priority: 10
-status:
-  currentNodesRealized: 0
-  desiredNodesRealized: 0
-  observedGeneration: 0
-  phase: ""
 `,
 	}
 	Tier1 = test_resource{
@@ -354,7 +339,6 @@ status:
 `apiVersion: crd.antrea.io/v1alpha1
 kind: Tier
 metadata:
-  creationTimestamp: null
   name: TierA
 spec:
   description: This is a test tier
@@ -366,61 +350,47 @@ spec:
 func TestSetupRepo(t *testing.T) {
 	tests := []struct {
 		name              string
-		inputK8sResources []test_resource
-		inputCRDResources []test_resource
+		inputResources []test_resource
 	}{
 		{
 			name:              "empty-test",
-			inputK8sResources: []test_resource{},
-			inputCRDResources: []test_resource{},
+			inputResources: []test_resource{},
 		},
 		{
 			name:              "basic-test",
-			inputK8sResources: []test_resource{Np1, Np2, Np3},
-			inputCRDResources: []test_resource{Anp1, Acnp1},
+			inputResources: []test_resource{Np1, Np2, Np3, Anp1, Acnp1},
 		},
 		{
 			name:              "empty-K8s-test",
-			inputK8sResources: []test_resource{},
-			inputCRDResources: []test_resource{Anp1, Acnp1},
+			inputResources: []test_resource{Anp1, Acnp1},
 		},
 		{
 			name:              "empty-CRDs-test",
-			inputK8sResources: []test_resource{Np1, Np2},
-			inputCRDResources: []test_resource{},
+			inputResources: []test_resource{Np1, Np2},
 		},
 		{
 			name:              "tiers-test",
-			inputK8sResources: []test_resource{Np1, Np2},
-			inputCRDResources: []test_resource{Anp1, Tier1},
+			inputResources: []test_resource{Np1, Np2, Anp1, Tier1},
 		},
 	}
 	for _, test := range tests {
 		var expectedPaths = []string{}
 		var expectedYamls = []string{}
-		var k8sResources = []runtime.Object{}
-		for _, resource := range test.inputK8sResources {
-			k8sResources = append(k8sResources, resource.inputResource)
+		var resources = []runtime.Object{}
+		for _, resource := range test.inputResources {
+			resources = append(resources, resource.inputResource)
 			expectedPaths = append(expectedPaths, resource.expPath)
 			expectedYamls = append(expectedYamls, resource.expYaml)
 		}
-		var crdResources = []runtime.Object{}
-		for _, resource := range test.inputCRDResources {
-			crdResources = append(crdResources, resource.inputResource)
-			expectedPaths = append(expectedPaths, resource.expPath)
-			expectedYamls = append(expectedYamls, resource.expYaml)
-		}
-		fakeK8sClient := NewK8sClientSet(k8sResources...)
-		fakeCRDClient := NewCRDClientSet(crdResources...)
-		k8s := &gitops.KubeClients{
-			ClientSet: fakeK8sClient,
-			CrdClient: fakeCRDClient,
+		fakeClient := NewClient(resources...)
+		k8s := &gitops.K8sClient{
+			Client: fakeClient,
 		}
 		runSetupTest(t, k8s, expectedPaths, expectedYamls)
 	}
 }
 
-func runSetupTest(t *testing.T, k8s *gitops.KubeClients, expPaths []string, expYamls []string) {
+func runSetupTest(t *testing.T, k8s *gitops.K8sClient, expPaths []string, expYamls []string) {
 	cr, err := gitops.SetupRepo(k8s, gitops.StorageModeInMemory, dir)
 	if err != nil {
 		t.Errorf("Error (TestSetupRepo): unable to set up repo")
@@ -439,11 +409,9 @@ func runSetupTest(t *testing.T, k8s *gitops.KubeClients, expPaths []string, expY
 }
 
 func TestRepoDuplicate(t *testing.T) {
-	fakeK8sClient := NewK8sClientSet(Np1.inputResource)
-	fakeCRDClient := NewCRDClientSet(Anp1.inputResource)
-	k8s := &gitops.KubeClients{
-		ClientSet: fakeK8sClient,
-		CrdClient: fakeCRDClient,
+	fakeClient := NewClient(Np1.inputResource, Anp1.inputResource)
+	k8s := &gitops.K8sClient{
+		Client: fakeClient,
 	}
 	_, err := gitops.SetupRepo(k8s, gitops.StorageModeInMemory, dir)
 	if err != nil {
@@ -455,12 +423,12 @@ func TestRepoDuplicate(t *testing.T) {
 	}
 }
 
-func NewK8sClientSet(objects ...runtime.Object) *fake.Clientset {
-	client := fake.NewSimpleClientset(objects...)
-	return client
-}
-
-func NewCRDClientSet(objects ...runtime.Object) *fakeversioned.Clientset {
-	client := fakeversioned.NewSimpleClientset(objects...)
+func NewClient(objects ...runtime.Object) client.WithWatch {
+	scheme := runtime.NewScheme()
+	gitops.RegisterTypes(scheme)
+	clientBuilder := fake.NewClientBuilder()
+	clientBuilder.WithRuntimeObjects(objects...)
+	clientBuilder.WithScheme(scheme)
+	client := clientBuilder.Build()
 	return client
 }

@@ -8,6 +8,8 @@ import (
 
 	"antrea-audit/gitops"
 
+	"github.com/fatih/structs"
+
 	crdv1alpha1 "antrea.io/antrea/pkg/apis/crd/v1alpha1"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/object"
@@ -17,6 +19,8 @@ import (
 	memory "github.com/go-git/go-git/v5/storage/memory"
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 var (
@@ -84,11 +88,9 @@ var (
 )
 
 func TestHandleEventList(t *testing.T) {
-	fakeK8sClient := NewK8sClientSet(Np1.inputResource)
-	fakeCRDClient := NewCRDClientSet(Anp1.inputResource)
-	k8s := &gitops.KubeClients{
-		ClientSet: fakeK8sClient,
-		CrdClient: fakeCRDClient,
+	fakeClient := NewClient(Np1.inputResource, Anp1.inputResource)
+	k8s := &gitops.K8sClient{
+		Client: fakeClient,
 	}
 
 	jsonStr, err := ioutil.ReadFile("./files/audit-log.txt")
@@ -111,11 +113,9 @@ func TestHandleEventList(t *testing.T) {
 }
 
 func TestTagging(t *testing.T) {
-	fakeK8sClient := NewK8sClientSet()
-	fakeCRDClient := NewCRDClientSet()
-	k8s := &gitops.KubeClients{
-		ClientSet: fakeK8sClient,
-		CrdClient: fakeCRDClient,
+	fakeClient := NewClient()
+	k8s := &gitops.K8sClient{
+		Client: fakeClient,
 	}
 	cr, err := gitops.SetupRepo(k8s, gitops.StorageModeInMemory, directory)
 	if err != nil {
@@ -168,11 +168,9 @@ func TestTagging(t *testing.T) {
 }
 
 func TestRollback(t *testing.T) {
-	fakeK8sClient := NewK8sClientSet(Np1.inputResource)
-	fakeCRDClient := NewCRDClientSet(Anp1.inputResource)
-	k8s := &gitops.KubeClients{
-		ClientSet: fakeK8sClient,
-		CrdClient: fakeCRDClient,
+	fakeClient := NewClient(np1, anp1)
+	k8s := &gitops.K8sClient{
+		Client: fakeClient,
 	}
 	cr, err := gitops.SetupRepo(k8s, gitops.StorageModeInMemory, directory)
 	if err != nil {
@@ -192,15 +190,20 @@ func TestRollback(t *testing.T) {
 	}
 
 	// Create, update, and delete a resource
-	if err := k8s.CreateOrUpdateK8sPolicy(np2); err != nil {
+	fmt.Println(structs.Map(np2))
+	r := &unstructured.Unstructured{Object: structs.Map(np2)}
+	fmt.Println(r.GetKind())
+	if err := k8s.CreateOrUpdateResource(r); err != nil {
 		t.Errorf("Error (TestRollback): unable to create new resource")
 	}
 	updatedNP := np1
 	updatedNP.ObjectMeta.ClusterName = "new-cluster-name"
-	if err := k8s.CreateOrUpdateK8sPolicy(updatedNP); err != nil {
+	r = &unstructured.Unstructured{Object: structs.Map(updatedNP)}
+	if err := k8s.CreateOrUpdateResource(r); err != nil {
 		t.Errorf("Error (TestRollback): unable to update resource")
 	}
-	if err := k8s.DeleteAntreaPolicy(anp1); err != nil {
+	r = &unstructured.Unstructured{Object: structs.Map(anp1)}
+	if err := k8s.DeleteResource(r); err != nil {
 		t.Errorf("Error (TestRollback): unable to delete resource")
 	}
 
@@ -234,16 +237,27 @@ func TestRollback(t *testing.T) {
 		"Error (TestRollback): rollback commit not found, head commit message mismatch")
 
 	// Check cluster state
-	k8sPolicies, err := k8s.GetK8sPolicies()
+	list := &unstructured.UnstructuredList{}
+	list.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "networking.k8s.io",
+		Version: "v1",
+		Kind:    "NetworkPolicyList",
+	})
+	k8sPolicies, err := k8s.ListResource(list)
 	if err != nil {
 		t.Errorf("Error (TestRollback): unable to get k8s policies")
 	}
 	assert.Equal(t, 1, len(k8sPolicies.Items), 
 		"Error (TestRollback): unexpected number of k8s policies after rollback")
-	assert.Equal(t, "", k8sPolicies.Items[0].ClusterName, 
+	assert.Equal(t, "", k8sPolicies.Items[0].GetClusterName(), 
 		"Error (TestRollback): updated field should be empty after rollback")
 
-	antreaPolicies, err := k8s.GetAntreaPolicies()
+	list.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "crd.antrea.io",
+		Version: "v1",
+		Kind:    "NetworkPolicyList",
+	})
+	antreaPolicies, err := k8s.ListResource(list)
 	if err != nil {
 		t.Errorf("Error (TestRollback): unable to get antrea policies")
 	}

@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	v1alpha1 "antrea.io/antrea/pkg/apis/crd/v1alpha1"
+	"antrea.io/antrea/pkg/apis/crd/v1alpha1"
 	networking "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -34,7 +34,7 @@ func NewKubernetes() (*K8sClient, error) {
 		}
 	}
 	scheme := runtime.NewScheme()
-	registerTypes(scheme)
+	RegisterTypes(scheme)
 	client, err := client.New(config, client.Options{Scheme: scheme})
 	if err != nil {
 		klog.ErrorS(err, "unable to instantiate new generic client")
@@ -43,7 +43,12 @@ func NewKubernetes() (*K8sClient, error) {
 	return &K8sClient{Client: client}, nil
 }
 
-func registerTypes(scheme *runtime.Scheme) {
+func RegisterTypes(scheme *runtime.Scheme) {
+	scheme.AddKnownTypeWithName(schema.GroupVersionKind{
+		Group:   "networking.k8s.io",
+		Version: "v1",
+		Kind:    "NetworkPolicy"},
+		&networking.NetworkPolicy{})
 	scheme.AddKnownTypeWithName(schema.GroupVersionKind{
 		Group:   "networking.k8s.io",
 		Version: "v1",
@@ -57,13 +62,28 @@ func registerTypes(scheme *runtime.Scheme) {
 	scheme.AddKnownTypeWithName(schema.GroupVersionKind{
 		Group:   "crd.antrea.io",
 		Version: "v1alpha1",
+		Kind:    "NetworkPolicy"},
+		&v1alpha1.NetworkPolicy{})
+	scheme.AddKnownTypeWithName(schema.GroupVersionKind{
+		Group:   "crd.antrea.io",
+		Version: "v1alpha1",
 		Kind:    "NetworkPolicyList"},
 		&v1alpha1.NetworkPolicyList{})
 	scheme.AddKnownTypeWithName(schema.GroupVersionKind{
 		Group:   "crd.antrea.io",
 		Version: "v1alpha1",
+		Kind:    "ClusterNetworkPolicy"},
+		&v1alpha1.ClusterNetworkPolicy{})
+	scheme.AddKnownTypeWithName(schema.GroupVersionKind{
+		Group:   "crd.antrea.io",
+		Version: "v1alpha1",
 		Kind:    "ClusterNetworkPolicyList"},
 		&v1alpha1.ClusterNetworkPolicyList{})
+	scheme.AddKnownTypeWithName(schema.GroupVersionKind{
+		Group:   "crd.antrea.io",
+		Version: "v1alpha1",
+		Kind:    "Tier"},
+		&v1alpha1.Tier{})
 	scheme.AddKnownTypeWithName(schema.GroupVersionKind{
 		Group:   "crd.antrea.io",
 		Version: "v1alpha1",
@@ -87,10 +107,10 @@ func (k *K8sClient) ListResource(resourceList *unstructured.UnstructuredList) (*
 
 func (k *K8sClient) CreateOrUpdateResource(resource *unstructured.Unstructured) error {
 	if err := k.Client.Create(context.TODO(), resource); err == nil {
-		klog.V(2).Infof("created resource %s", resource.GetName())
+		klog.Infof("created resource %s", resource.GetName())
 		return nil
 	}
-	klog.V(2).Infof("unable to create resource, trying update instead")
+	klog.Infof("unable to create resource %s, trying update instead", resource.GetName())
 	oldResource := &unstructured.Unstructured{}
 	_ = k.Client.Get(context.TODO(), client.ObjectKey{
 		Namespace: resource.GetNamespace(),
@@ -98,10 +118,10 @@ func (k *K8sClient) CreateOrUpdateResource(resource *unstructured.Unstructured) 
 	}, oldResource)
 	resource.SetResourceVersion(oldResource.GetResourceVersion())
 	if err := k.Client.Update(context.TODO(), resource); err != nil {
-		klog.Errorf("unable to update k8s resource %s", resource.GetName())
+		klog.Errorf("unable to update resource %s", resource.GetName())
 		return err
 	}
-	klog.V(2).Infof("updated resource %s", resource.GetName())
+	klog.Infof("updated resource %s", resource.GetName())
 	return nil
 }
 
@@ -111,6 +131,6 @@ func (k *K8sClient) DeleteResource(resource *unstructured.Unstructured) error {
 		klog.Errorf("unable to delete resource %s", resource.GetName())
 		return err
 	}
-	klog.V(2).Infof("deleted k8s network policy %s", resource.GetName())
+	klog.Infof("deleted k8s network policy %s", resource.GetName())
 	return nil
 }

@@ -5,25 +5,23 @@ import (
 	"testing"
 	"time"
 
-	. "antrea-audit/gitops"
+	"antrea-audit/gitops"
 )
 
 func TestFilterCommits(t *testing.T) {
 	start := time.Now()
 	time.Sleep(time.Millisecond * 500)
 	empty := ""
-	fakeK8sClient := NewK8sClientSet(Np1.inputResource)
-	fakeCRDClient := NewCRDClientSet(Anp1.inputResource)
-	k8s := &KubeClients{
-		ClientSet: fakeK8sClient,
-		CrdClient: fakeCRDClient,
+	fakeClient := NewClient(Np1.inputResource, Anp1.inputResource)
+	k8s := &gitops.K8sClient{
+		Client: fakeClient,
 	}
 
 	jsonStr, err := ioutil.ReadFile("./files/audit-log.txt")
 	if err != nil {
 		t.Errorf("Error (TestFilterCommits): cannot read audit-log.txt")
 	}
-	cr, err := SetupRepo(k8s, StorageModeInMemory, empty)
+	cr, err := gitops.SetupRepo(k8s, gitops.StorageModeInMemory, empty)
 	if err != nil {
 		t.Errorf("Error (TestFilterCommits): unable to set up repo for the first time")
 	}
@@ -34,6 +32,9 @@ func TestFilterCommits(t *testing.T) {
 	until := time.Now()
 
 	commits, err := cr.FilterCommits(&empty, &start, &until, &empty)
+	if err != nil {
+		t.Errorf("Error (TestFilterCommits): unable to filter commits")
+	}
 
 	for _, c := range commits {
 		if c.Author.Name == "audit-init" {
