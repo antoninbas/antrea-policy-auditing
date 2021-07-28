@@ -281,7 +281,7 @@ func TestRollback(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error (TestRollback): unable to get policy after rollback")
 	}
-	assert.Equal(t, "", np.GetClusterName(), 
+	assert.Equal(t, "", np.GetClusterName(),
 		"Error (TestRollback): updated field should be empty after rollback")
 
 	res = &unstructured.Unstructured{}
@@ -294,4 +294,18 @@ func TestRollback(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error (TestRollback): unable to get antrea policy after rollback")
 	}
+<<<<<<< HEAD
+=======
+	assert.Equal(t, 1, len(antreaPolicies.Items),
+		"Error (TestRollback): unexpected number of antrea policies after rollback")
+}
+
+func SetupMemRepo(storer *memory.Storage, fs billy.Filesystem) error {
+	_, err := git.Init(storer, fs)
+	fs.MkdirAll("k8s-policies", 0700)
+	fs.MkdirAll("antrea-policies", 0700)
+	fs.MkdirAll("antrea-cluster-policies", 0700)
+	fs.MkdirAll("antrea-tiers", 0700)
+	return err
+>>>>>>> 8c11949 (more cli changes)
 }

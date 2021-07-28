@@ -6,11 +6,14 @@ import (
     "path"
     "net/http"
     "io/ioutil"
-    "encoding/json"
 
-    "antrea-audit/webhook"
     "github.com/spf13/cobra"
 )
+
+var author string
+var since string
+var until string
+var filename string
 
 var commandName = path.Base(os.Args[0])
 
@@ -20,38 +23,19 @@ var rootCmd = &cobra.Command{
     Long:  commandName + " is the command line tool for filtering commmits that supports post and get functionality",
 }
 
-func getURL(requestBody []byte) (string) {
-    filts := webhook.Filters{}
-    err := json.Unmarshal(requestBody, &filts)
-    if err != nil {
-        fmt.Println(err)
-        return ""
-    }
+func getURL() (string) {
     qstn := false
+    flags := []string{author, since, until, filename}
+    flagnames := []string{"author", "since", "until", "filename"}
     url := "http://localhost:8008/changes?"
-    if filts.Author != "" {
-        url += "author="+filts.Author
-        qstn = true
-    }
-    if !filts.Since.IsZero() {
-        if qstn {
-            url += "&"
+    for f, flag := range flags {
+        if flag != "" {
+            if qstn {
+                url += "&"
+            }
+            url += flagnames[f]+"="+flag
+            qstn = true
         }
-        url += "since="+filts.Since.String()
-        qstn = true
-    }
-    if !filts.Until.IsZero() {
-        if qstn {
-            url += "&"
-        }
-        url += "until="+filts.Until.String()
-        qstn = true
-    }
-    if filts.FileName != "" {
-        if qstn {
-            url += "&"
-        }
-        url += "filename="+filts.FileName
     }
     return url
 }
@@ -59,15 +43,8 @@ func getURL(requestBody []byte) (string) {
 var getCmd = &cobra.Command {
     Use: "get",
     Short: "get with file",
-    Args: cobra.ExactArgs(1),
     Run: func(cmd *cobra.Command, args []string) {
-        requestBody, err := ioutil.ReadFile(args[0])
-        if err != nil {
-            fmt.Println(err)
-            return
-        }
-
-        url := getURL(requestBody)
+        url := getURL()
         resp, err := http.Get(url)
         if err != nil {
             fmt.Println(err)
@@ -84,6 +61,10 @@ var getCmd = &cobra.Command {
 }
 
 func init() {
+    getCmd.Flags().StringVarP(&author, "author", "a", "", "author of changes")
+    getCmd.Flags().StringVarP(&since, "since", "s", "", "start of time range")
+    getCmd.Flags().StringVarP(&until, "until", "u", "", "end of time range")
+    getCmd.Flags().StringVarP(&filename, "resource", "r", "", "resource name:q")
     rootCmd.AddCommand(getCmd)
 }
 

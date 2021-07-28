@@ -42,6 +42,9 @@ func SetupRepo(k8s *K8sClient, mode StorageModeType, dir string) (*CustomRepo, e
 		klog.ErrorS(tmp, "incorrect mode")
 		return nil, tmp
 	}
+    if mode == "mem" && dir != "" {
+        return git.ErrRepositoryAlreadyExists
+    }
 	storer := memory.NewStorage()
 	fs := memfs.New()
 	svcAcct := "system:serviceaccount:" + GetAuditPodNamespace() + ":" + GetAuditServiceAccount()
