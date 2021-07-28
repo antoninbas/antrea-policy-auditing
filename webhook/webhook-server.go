@@ -9,7 +9,6 @@ import (
 	"antrea-audit/gitops"
 
 	"k8s.io/klog/v2"
-	
 	//"github.com/go-git/go-git/v5/plumbing/object"
 )
 
@@ -155,6 +154,9 @@ func ReceiveEvents(port string, cr *gitops.CustomRepo) error {
 	})
 	http.HandleFunc("/rollback", func(w http.ResponseWriter, r *http.Request) {
 		rollback(w, r, cr)
+	})
+	http.HandleFunc("/tag", func(w http.ResponseWriter, r *http.Request) {
+		tag(w, r, cr)
 	})
 	klog.V(2).Infof("Audit webhook server started, listening on port %s", port)
 	if err := http.ListenAndServe(":"+string(port), nil); err != nil {
