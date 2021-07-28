@@ -78,11 +78,19 @@ func changes(w http.ResponseWriter, r *http.Request, cr *gitops.CustomRepo) {
     if len(filts["until"]) > 0 {
         until, _ = time.Parse(layout, filts["until"][0])
     }
-    filename := ""
-    if len(filts["filename"]) > 0 {
-        author = filts["filename"][0]
+    resource := ""
+    if len(filts["resource"]) > 0 {
+        author = filts["resource"][0]
     }
-	commits, err := cr.FilterCommits(&author, &since, &until, &filename)
+    namespace := ""
+    if len(filts["namespace"]) > 0 {
+        author = filts["namespace"][0]
+    }
+    name := ""
+    if len(filts["name"]) > 0 {
+        author = filts["name"][0]
+    }
+	commits, err := cr.FilterCommits(&author, &since, &until, &resource, &namespace, &name)
 	if err != nil {
 		klog.ErrorS(err, "unable to process audit event list")
 		w.WriteHeader(http.StatusBadRequest)

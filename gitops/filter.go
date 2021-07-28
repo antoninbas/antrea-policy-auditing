@@ -8,7 +8,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
-func (cr *CustomRepo) FilterCommits(author *string, since *time.Time, until *time.Time, policyResourceName *string) ([]object.Commit, error) {
+func (cr *CustomRepo) FilterCommits(author *string, since *time.Time, until *time.Time, resource *string, namespace *string, name *string) ([]object.Commit, error) {
 	var logopts git.LogOptions
 	var filteredCommits []object.Commit
 
@@ -27,6 +27,7 @@ func (cr *CustomRepo) FilterCommits(author *string, since *time.Time, until *tim
 	if !since.IsZero() && until != nil {
 		logopts.Until = until
 	}
+    filepath := "/resource-auditing-repo"
 	if !(*policyResourceName == "") {
 		logopts.FileName = policyResourceName
 	}
