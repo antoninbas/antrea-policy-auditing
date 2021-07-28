@@ -170,26 +170,15 @@ func (cr *CustomRepo) addK8sPolicies() error {
 				cr.Fs.MkdirAll("k8s-policies/"+namespace, 0700)
 			}
 		}
-		path := cr.Dir + "/k8s-policies/" + namespace + "/" + name + ".yaml"
+		path := computePath(cr.Dir, "k8s-policies", namespace, name+".yaml")
 		y, err := yaml.Marshal(&np)
 		if err != nil {
 			klog.ErrorS(err, "unable to marshal policy config")
 			return err
 		}
-		if cr.StorageMode == StorageModeDisk {
-			err = ioutil.WriteFile(path, y, 0644)
-			if err != nil {
-				klog.ErrorS(err, "unable to write policy config to file")
-				return err
-			}
-		} else {
-			newFile, err := cr.Fs.Create(path)
-			if err != nil {
-				klog.ErrorS(err, "unable to write policy config to file")
-				return err
-			}
-			newFile.Write(y)
-			newFile.Close()
+		if err := cr.writeFileToPath(path, y); err != nil {
+			klog.Errorf("unable to write k8s policy yaml to path %s", path)
+			return err
 		}
 		klog.V(2).Infof("Added K8s policy at resource-auditing-repo/k8s-policies/" + namespace + "/" + name + ".yaml")
 	}
@@ -216,26 +205,15 @@ func (cr *CustomRepo) addAntreaPolicies() error {
 			namespaces = append(namespaces, namespace)
 			os.Mkdir(cr.Dir+"/antrea-policies/"+namespace, 0700)
 		}
-		path := cr.Dir + "/antrea-policies/" + namespace + "/" + name + ".yaml"
+		path := computePath(cr.Dir, "antrea-policies", namespace, name+".yaml")
 		y, err := yaml.Marshal(&np)
 		if err != nil {
 			klog.ErrorS(err, "unable to marshal policy config")
 			return err
 		}
-		if cr.StorageMode == StorageModeDisk {
-			err = ioutil.WriteFile(path, y, 0644)
-			if err != nil {
-				klog.ErrorS(err, "unable to write policy config to file")
-				return err
-			}
-		} else {
-			newFile, err := cr.Fs.Create(path)
-			if err != nil {
-				klog.ErrorS(err, "unable to write policy config to file")
-				return err
-			}
-			newFile.Write(y)
-			newFile.Close()
+		if err := cr.writeFileToPath(path, y); err != nil {
+			klog.Errorf("unable to write antrea policy yaml to path %s", path)
+			return err
 		}
 		klog.V(2).Infof("Added Antrea policy at resource-auditing-repo/antrea-policies/" + namespace + "/" + name + ".yaml")
 	}
@@ -256,26 +234,15 @@ func (cr *CustomRepo) addAntreaClusterPolicies() error {
 	for _, np := range policies.Items {
 		clearFields(&np)
 		name := np.GetName()
-		path := cr.Dir + "/antrea-cluster-policies/" + name + ".yaml"
+		path := computePath(cr.Dir, "antrea-cluster-policies", "", name+".yaml")
 		y, err := yaml.Marshal(&np)
 		if err != nil {
 			klog.ErrorS(err, "unable to marshal policy config")
 			return err
 		}
-		if cr.StorageMode == StorageModeDisk {
-			err = ioutil.WriteFile(path, y, 0644)
-			if err != nil {
-				klog.ErrorS(err, "unable to write policy config to file")
-				return err
-			}
-		} else {
-			newFile, err := cr.Fs.Create(path)
-			if err != nil {
-				klog.ErrorS(err, "unable to write policy config to file")
-				return err
-			}
-			newFile.Write(y)
-			newFile.Close()
+		if err := cr.writeFileToPath(path, y); err != nil {
+			klog.Errorf("unable to write antrea cluster policy yaml to path %s", path)
+			return err
 		}
 		klog.V(2).Infof("Added Antrea cluster policy at resource-auditing-repo/antrea-cluster-policies/" + name + ".yaml")
 	}
@@ -296,28 +263,36 @@ func (cr *CustomRepo) addAntreaTiers() error {
 	for _, tier := range tiers.Items {
 		clearFields(&tier)
 		name := tier.GetName()
-		path := cr.Dir + "/antrea-tiers/" + name + ".yaml"
+		path := computePath(cr.Dir, "antrea-tiers", "", name+".yaml")
 		y, err := yaml.Marshal(&tier)
 		if err != nil {
 			klog.ErrorS(err, "unable to marshal tier config")
 			return err
 		}
-		if cr.StorageMode == StorageModeDisk {
-			err = ioutil.WriteFile(path, y, 0644)
-			if err != nil {
-				klog.ErrorS(err, "unable to write policy config to file")
-				return err
-			}
-		} else {
-			newFile, err := cr.Fs.Create(path)
-			if err != nil {
-				klog.ErrorS(err, "unable to write policy config to file")
-				return err
-			}
-			newFile.Write(y)
-			newFile.Close()
+		if err := cr.writeFileToPath(path, y); err != nil {
+			klog.Errorf("unable to write tier yaml to path %s", path)
+			return err
 		}
 		klog.V(2).Infof("Added Antrea tier at resource-auditing-repo/antrea-tiers/" + name + ".yaml")
+	}
+	return nil
+}
+
+func (cr *CustomRepo) writeFileToPath(path string, yaml []byte) error {
+	if cr.StorageMode == StorageModeDisk {
+		err := ioutil.WriteFile(path, yaml, 0644)
+		if err != nil {
+			klog.ErrorS(err, "unable to write policy config to file")
+			return err
+		}
+	} else {
+		newFile, err := cr.Fs.Create(path)
+		if err != nil {
+			klog.ErrorS(err, "unable to write policy config to file")
+			return err
+		}
+		newFile.Write(yaml)
+		newFile.Close()
 	}
 	return nil
 }

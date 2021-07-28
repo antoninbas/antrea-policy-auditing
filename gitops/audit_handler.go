@@ -3,6 +3,7 @@ package gitops
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 
 	"k8s.io/klog/v2"
 
@@ -10,8 +11,8 @@ import (
 )
 
 func (cr *CustomRepo) HandleEventList(jsonstring []byte) error {
-	// cr.Mutex.Lock()
-	// defer cr.Mutex.Unlock()
+	cr.Mutex.Lock()
+	defer cr.Mutex.Unlock()
 	eventList := auditv1.EventList{}
 	jsonstring = bytes.TrimPrefix(jsonstring, []byte("\xef\xbb\xbf"))
 	err := json.Unmarshal(jsonstring, &eventList)
@@ -26,10 +27,10 @@ func (cr *CustomRepo) HandleEventList(jsonstring []byte) error {
 			klog.V(4).InfoS("Audit event skipped (audit Stage != ResponseComplete, audit ResponseStatus != Success, or audit produced by rollback)")
 			continue
 		}
-		// if cr.RollbackMode {
-		// 	klog.V(2).Infof("Rollback currently in progress, rejecting audit")
-		// 	return fmt.Errorf("rollback-in-progress")
-		// }
+		if cr.RollbackMode {
+			klog.V(2).Infof("Rollback currently in progress, rejecting audit")
+			return fmt.Errorf("rollback-in-progress")
+		}
 		user := event.User.Username
 		email := event.User.Username + "+" + event.User.UID + "@audit.antrea.io"
 		message := resourceMap[event.ObjectRef.Resource+event.ObjectRef.APIGroup] + event.ObjectRef.Namespace + "/" + event.ObjectRef.Name

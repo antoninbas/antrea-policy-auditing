@@ -9,18 +9,10 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/object"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	auditv1 "k8s.io/apiserver/pkg/apis/audit/v1"
 	"k8s.io/klog/v2"
 )
-
-type AuditResource struct {
-	Kind       string                 `json:"kind"`
-	APIVersion string                 `json:"apiVersion"`
-	Metadata   metav1.ObjectMeta      `json:"metadata"`
-	Spec       map[string]interface{} `json:"spec"`
-}
 
 func (cr *CustomRepo) AddAndCommit(username string, email string, message string) error {
 	w, err := cr.Repo.Worktree()
