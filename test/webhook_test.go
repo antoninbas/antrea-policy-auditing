@@ -9,11 +9,9 @@ import (
 
 func TestExposeWebhook(t *testing.T) {
     mt := ""
-    fakeK8sClient := NewK8sClientSet(Np1.inputResource)
-	fakeCRDClient := NewCRDClientSet(Anp1.inputResource)
-	k8s := &gitops.KubeClients{
-		ClientSet: fakeK8sClient,
-		CrdClient: fakeCRDClient,
+	fakeClient := NewClient(Np1.inputResource, Anp1.inputResource)
+	k8s := &gitops.K8sClient{
+		Client: fakeClient,
 	}
 
 	cr, err := gitops.SetupRepo(k8s, gitops.StorageModeInMemory, mt)
