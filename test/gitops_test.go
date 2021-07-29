@@ -10,12 +10,9 @@ import (
 	"antrea-audit/gitops"
 
 	crdv1alpha1 "antrea.io/antrea/pkg/apis/crd/v1alpha1"
-	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/stretchr/testify/assert"
 
-	billy "github.com/go-git/go-billy/v5"
-	memory "github.com/go-git/go-git/v5/storage/memory"
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -87,7 +84,7 @@ var (
 )
 
 func TestHandleEventList(t *testing.T) {
-	fakeClient := NewClient(Np1.inputResource, Anp1.inputResource)
+	fakeClient := NewClient(np1.DeepCopy(), anp1.DeepCopy())
 	k8s := &gitops.K8sClient{
 		Client: fakeClient,
 	}
@@ -167,7 +164,7 @@ func TestTagging(t *testing.T) {
 }
 
 func TestRollback(t *testing.T) {
-	fakeClient := NewClient(np1, anp1)
+	fakeClient := NewClient(np1.DeepCopy(), anp1.DeepCopy())
 	k8s := &gitops.K8sClient{
 		Client: fakeClient,
 	}
@@ -207,7 +204,7 @@ func TestRollback(t *testing.T) {
 	}
 
 	updatedNP := np1
-	updatedNP.ObjectMeta.ClusterName = "new-cluster-name"
+	updatedNP.ObjectMeta.SetClusterName("new-cluster-name")
 	r = unstructured.Unstructured{}
 	r.SetGroupVersionKind(schema.GroupVersionKind{
 		Group:   "networking.k8s.io",
@@ -218,12 +215,14 @@ func TestRollback(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error (TestRollback): unable to convert to json")
 	}
+	fmt.Println(string(j))
 	if err := json.Unmarshal(j, &r); err != nil {
 		t.Errorf("Error (TestRollback): unable to unmarshal into unstructured object")
 	}
 	if err := k8s.CreateOrUpdateResource(&r); err != nil {
 		t.Errorf("Error (TestRollback): unable to update resource")
 	}
+	fmt.Println("got here")
 
 	r = unstructured.Unstructured{}
 	r.SetGroupVersionKind(schema.GroupVersionKind{
@@ -295,13 +294,4 @@ func TestRollback(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error (TestRollback): unable to get antrea policy after rollback")
 	}
-}
-
-func SetupMemRepo(storer *memory.Storage, fs billy.Filesystem) error {
-	_, err := git.Init(storer, fs)
-	fs.MkdirAll("k8s-policies", 0700)
-	fs.MkdirAll("antrea-policies", 0700)
-	fs.MkdirAll("antrea-cluster-policies", 0700)
-	fs.MkdirAll("antrea-tiers", 0700)
-	return err
 }

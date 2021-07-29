@@ -7,6 +7,7 @@ import (
 
 	"antrea.io/antrea/pkg/apis/crd/v1alpha1"
 	networking "k8s.io/api/networking/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -121,21 +122,25 @@ func (k *K8sClient) CreateOrUpdateResource(resource *unstructured.Unstructured) 
 	if err := k.Client.Create(context.TODO(), resource); err == nil {
 		klog.V(2).Infof("created resource %s", resource.GetName())
 		return nil
-	}
-	klog.V(2).Infof("unable to create resource %s, trying update instead", resource.GetName())
-	oldResource := &unstructured.Unstructured{}
-	oldResource.SetGroupVersionKind(resource.GroupVersionKind())
-	_ = k.Client.Get(context.TODO(), client.ObjectKey{
-		Namespace: resource.GetNamespace(),
-		Name:      resource.GetName(),
-	}, oldResource)
-	resource.SetResourceVersion(oldResource.GetResourceVersion())
-	if err := k.Client.Update(context.TODO(), resource); err != nil {
-		klog.Errorf("unable to update resource %s", resource.GetName())
+	} else if errors.IsAlreadyExists(err) {
+		klog.Infof("resource %s already exists, trying update instead", resource.GetName())
+		oldResource := &unstructured.Unstructured{}
+		oldResource.SetGroupVersionKind(resource.GroupVersionKind())
+		_ = k.Client.Get(context.TODO(), client.ObjectKey{
+			Namespace: resource.GetNamespace(),
+			Name:      resource.GetName(),
+		}, oldResource)
+		resource.SetResourceVersion(oldResource.GetResourceVersion())
+		if err := k.Client.Update(context.TODO(), resource); err != nil {
+			klog.Errorf("unable to update resource %s", resource.GetName())
+			return err
+		}
+		klog.V(2).Infof("updated resource %s", resource.GetName())
+		return nil
+	} else {
+		klog.ErrorS(err, "error while creating resource", "resourceName", resource.GetName())
 		return err
 	}
-	klog.V(2).Infof("updated resource %s", resource.GetName())
-	return nil
 }
 
 func (k *K8sClient) DeleteResource(resource *unstructured.Unstructured) error {
