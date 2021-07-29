@@ -96,6 +96,18 @@ func RegisterTypes(scheme *runtime.Scheme) {
 		&metav1.ListOptions{})
 }
 
+func (k *K8sClient) GetResource(resource *unstructured.Unstructured, namespace string, name string) (*unstructured.Unstructured, error) {
+	err := k.Client.Get(context.TODO(), client.ObjectKey{
+		Namespace: namespace,
+		Name:      name,
+		}, resource); 
+	if err != nil {
+		klog.Errorf("unable to get resource %s/%s", namespace, name)
+		return nil, err
+	}
+	return resource, nil
+}
+
 func (k *K8sClient) ListResource(resourceList *unstructured.UnstructuredList) (*unstructured.UnstructuredList, error) {
 	err := k.Client.List(context.TODO(), resourceList)
 	if err != nil {
@@ -107,11 +119,12 @@ func (k *K8sClient) ListResource(resourceList *unstructured.UnstructuredList) (*
 
 func (k *K8sClient) CreateOrUpdateResource(resource *unstructured.Unstructured) error {
 	if err := k.Client.Create(context.TODO(), resource); err == nil {
-		klog.Infof("created resource %s", resource.GetName())
+		klog.V(2).Infof("created resource %s", resource.GetName())
 		return nil
 	}
-	klog.Infof("unable to create resource %s, trying update instead", resource.GetName())
+	klog.V(2).Infof("unable to create resource %s, trying update instead", resource.GetName())
 	oldResource := &unstructured.Unstructured{}
+	oldResource.SetGroupVersionKind(resource.GroupVersionKind())
 	_ = k.Client.Get(context.TODO(), client.ObjectKey{
 		Namespace: resource.GetNamespace(),
 		Name:      resource.GetName(),
@@ -121,7 +134,7 @@ func (k *K8sClient) CreateOrUpdateResource(resource *unstructured.Unstructured) 
 		klog.Errorf("unable to update resource %s", resource.GetName())
 		return err
 	}
-	klog.Infof("updated resource %s", resource.GetName())
+	klog.V(2).Infof("updated resource %s", resource.GetName())
 	return nil
 }
 
@@ -131,6 +144,6 @@ func (k *K8sClient) DeleteResource(resource *unstructured.Unstructured) error {
 		klog.Errorf("unable to delete resource %s", resource.GetName())
 		return err
 	}
-	klog.Infof("deleted k8s network policy %s", resource.GetName())
+	klog.V(2).Infof("deleted k8s network policy %s", resource.GetName())
 	return nil
 }

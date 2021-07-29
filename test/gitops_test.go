@@ -1,14 +1,13 @@
 package test
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"testing"
 	"time"
 
 	"antrea-audit/gitops"
-
-	"github.com/fatih/structs"
 
 	crdv1alpha1 "antrea.io/antrea/pkg/apis/crd/v1alpha1"
 	"github.com/go-git/go-git/v5"
@@ -190,20 +189,56 @@ func TestRollback(t *testing.T) {
 	}
 
 	// Create, update, and delete a resource
-	fmt.Println(structs.Map(np2))
-	r := &unstructured.Unstructured{Object: structs.Map(np2)}
-	fmt.Println(r.GetKind())
-	if err := k8s.CreateOrUpdateResource(r); err != nil {
+	r := unstructured.Unstructured{}
+	r.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "networking.k8s.io",
+		Version: "v1",
+		Kind:    "NetworkPolicy",
+	})
+	j, err := json.Marshal(np2)
+	if err != nil {
+		t.Errorf("Error (TestRollback): unable to convert to json")
+	}
+	if err := json.Unmarshal(j, &r); err != nil {
+		t.Errorf("Error (TestRollback): unable to unmarshal into unstructured object")
+	}
+	if err := k8s.CreateOrUpdateResource(&r); err != nil {
 		t.Errorf("Error (TestRollback): unable to create new resource")
 	}
+
 	updatedNP := np1
 	updatedNP.ObjectMeta.ClusterName = "new-cluster-name"
-	r = &unstructured.Unstructured{Object: structs.Map(updatedNP)}
-	if err := k8s.CreateOrUpdateResource(r); err != nil {
+	r = unstructured.Unstructured{}
+	r.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "networking.k8s.io",
+		Version: "v1",
+		Kind:    "NetworkPolicy",
+	})
+	j, err = json.Marshal(updatedNP)
+	if err != nil {
+		t.Errorf("Error (TestRollback): unable to convert to json")
+	}
+	if err := json.Unmarshal(j, &r); err != nil {
+		t.Errorf("Error (TestRollback): unable to unmarshal into unstructured object")
+	}
+	if err := k8s.CreateOrUpdateResource(&r); err != nil {
 		t.Errorf("Error (TestRollback): unable to update resource")
 	}
-	r = &unstructured.Unstructured{Object: structs.Map(anp1)}
-	if err := k8s.DeleteResource(r); err != nil {
+
+	r = unstructured.Unstructured{}
+	r.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "crd.antrea.io",
+		Version: "v1alpha1",
+		Kind:    "NetworkPolicy",
+	})
+	j, err = json.Marshal(anp1)
+	if err != nil {
+		t.Errorf("Error (TestRollback): unable to convert to json")
+	}
+	if err := json.Unmarshal(j, &r); err != nil {
+		t.Errorf("Error (TestRollback): unable to unmarshal into unstructured object")
+	}
+	if err := k8s.DeleteResource(&r); err != nil {
 		t.Errorf("Error (TestRollback): unable to delete resource")
 	}
 
@@ -237,32 +272,29 @@ func TestRollback(t *testing.T) {
 		"Error (TestRollback): rollback commit not found, head commit message mismatch")
 
 	// Check cluster state
-	list := &unstructured.UnstructuredList{}
-	list.SetGroupVersionKind(schema.GroupVersionKind{
+	res := &unstructured.Unstructured{}
+	res.SetGroupVersionKind(schema.GroupVersionKind{
 		Group:   "networking.k8s.io",
 		Version: "v1",
-		Kind:    "NetworkPolicyList",
+		Kind:    "NetworkPolicy",
 	})
-	k8sPolicies, err := k8s.ListResource(list)
+	np, err := k8s.GetResource(res, "nsA", "npA")
 	if err != nil {
-		t.Errorf("Error (TestRollback): unable to get k8s policies")
+		t.Errorf("Error (TestRollback): unable to get policy after rollback")
 	}
-	assert.Equal(t, 1, len(k8sPolicies.Items), 
-		"Error (TestRollback): unexpected number of k8s policies after rollback")
-	assert.Equal(t, "", k8sPolicies.Items[0].GetClusterName(), 
+	assert.Equal(t, "", np.GetClusterName(), 
 		"Error (TestRollback): updated field should be empty after rollback")
 
-	list.SetGroupVersionKind(schema.GroupVersionKind{
+	res = &unstructured.Unstructured{}
+	res.SetGroupVersionKind(schema.GroupVersionKind{
 		Group:   "crd.antrea.io",
-		Version: "v1",
-		Kind:    "NetworkPolicyList",
+		Version: "v1alpha1",
+		Kind:    "NetworkPolicy",
 	})
-	antreaPolicies, err := k8s.ListResource(list)
+	_, err = k8s.GetResource(res, "nsA", "anpA")
 	if err != nil {
-		t.Errorf("Error (TestRollback): unable to get antrea policies")
+		t.Errorf("Error (TestRollback): unable to get antrea policy after rollback")
 	}
-	assert.Equal(t, 1, len(antreaPolicies.Items), 
-		"Error (TestRollback): unexpected number of antrea policies after rollback")
 }
 
 func SetupMemRepo(storer *memory.Storage, fs billy.Filesystem) error {
