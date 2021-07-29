@@ -109,7 +109,7 @@ func (k *K8sClient) GetResource(resource *unstructured.Unstructured, namespace s
 		Name:      name,
 	}, resource)
 	if err != nil {
-		klog.Errorf("unable to get resource %s/%s", namespace, name)
+		klog.ErrorS(err, "unable to get resource", "namespace", namespace, "name", name)
 		return nil, err
 	}
 	return resource, nil
@@ -118,7 +118,9 @@ func (k *K8sClient) GetResource(resource *unstructured.Unstructured, namespace s
 func (k *K8sClient) ListResource(resourceList *unstructured.UnstructuredList) (*unstructured.UnstructuredList, error) {
 	err := k.List(context.TODO(), resourceList)
 	if err != nil {
-		klog.ErrorS(err, "unable to list resource")
+		klog.ErrorS(err, "unable to list resource",
+			"APIVersion", resourceList.GetAPIVersion(),
+			"Kind", resourceList.GetKind())
 		return nil, err
 	}
 	return resourceList, nil
@@ -126,10 +128,10 @@ func (k *K8sClient) ListResource(resourceList *unstructured.UnstructuredList) (*
 
 func (k *K8sClient) CreateOrUpdateResource(resource *unstructured.Unstructured) error {
 	if err := k.Create(context.TODO(), resource); err == nil {
-		klog.V(2).Infof("created resource %s", resource.GetName())
+		klog.V(2).InfoS("created resource", "resourceName", resource.GetName())
 		return nil
 	} else if errors.IsAlreadyExists(err) {
-		klog.Infof("resource %s already exists, trying update instead", resource.GetName())
+		klog.V(2).InfoS("resource already exists, trying update instead", "resourceName", resource.GetName())
 		oldResource := &unstructured.Unstructured{}
 		oldResource.SetGroupVersionKind(resource.GroupVersionKind())
 		_ = k.Get(context.TODO(), client.ObjectKey{
@@ -138,10 +140,10 @@ func (k *K8sClient) CreateOrUpdateResource(resource *unstructured.Unstructured) 
 		}, oldResource)
 		resource.SetResourceVersion(oldResource.GetResourceVersion())
 		if err := k.Update(context.TODO(), resource); err != nil {
-			klog.Errorf("unable to update resource %s", resource.GetName())
+			klog.ErrorS(err, "unable to update resource", "resourceName", resource.GetName())
 			return err
 		}
-		klog.V(2).Infof("updated resource %s", resource.GetName())
+		klog.V(2).InfoS("updated resource", "resourceName", resource.GetName())
 		return nil
 	} else {
 		klog.ErrorS(err, "error while creating resource", "resourceName", resource.GetName())
@@ -152,9 +154,9 @@ func (k *K8sClient) CreateOrUpdateResource(resource *unstructured.Unstructured) 
 func (k *K8sClient) DeleteResource(resource *unstructured.Unstructured) error {
 	err := k.Delete(context.TODO(), resource)
 	if err != nil {
-		klog.Errorf("unable to delete resource %s", resource.GetName())
+		klog.ErrorS(err, "unable to delete resource", "resourceName", resource.GetName())
 		return err
 	}
-	klog.Infof("deleted k8s network policy %s", resource.GetName())
+	klog.V(2).InfoS("deleted k8s network policy", "resourceName", resource.GetName())
 	return nil
 }
