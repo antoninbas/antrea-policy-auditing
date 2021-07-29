@@ -3,7 +3,6 @@ package gitops
 import (
 	"context"
 	"os"
-	"path/filepath"
 
 	"antrea.io/antrea/pkg/apis/crd/v1alpha1"
 	networking "k8s.io/api/networking/v1"
@@ -19,15 +18,22 @@ import (
 )
 
 type K8sClient struct {
-	Client client.Client
+	client.Client
 }
 
 func NewKubernetes() (*K8sClient, error) {
-	config, err := rest.InClusterConfig()
-	if err != nil {
-		kubeconfig := filepath.Join(
-			os.Getenv("KUBECONFIG"),
-		)
+	var config *rest.Config
+	kubeconfig, hasIt := os.LookupEnv("KUBECONFIG")
+	if !hasIt {
+		kubeconfig = clientcmd.RecommendedHomeFile
+	}
+	if _, err := os.Stat(kubeconfig); kubeconfig == clientcmd.RecommendedHomeFile && os.IsNotExist(err) {
+		config, err = rest.InClusterConfig()
+		if err != nil {
+			klog.ErrorS(err, "unable to create InClusterConfig")
+			return nil, err
+		}
+	} else {
 		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
 		if err != nil {
 			klog.ErrorS(err, "unable to build config from flags, check that your KUBECONFIG file is correct!")
@@ -41,7 +47,7 @@ func NewKubernetes() (*K8sClient, error) {
 		klog.ErrorS(err, "unable to instantiate new generic client")
 		return nil, err
 	}
-	return &K8sClient{Client: client}, nil
+	return &K8sClient{client}, nil
 }
 
 func RegisterTypes(scheme *runtime.Scheme) {
@@ -98,10 +104,10 @@ func RegisterTypes(scheme *runtime.Scheme) {
 }
 
 func (k *K8sClient) GetResource(resource *unstructured.Unstructured, namespace string, name string) (*unstructured.Unstructured, error) {
-	err := k.Client.Get(context.TODO(), client.ObjectKey{
+	err := k.Get(context.TODO(), client.ObjectKey{
 		Namespace: namespace,
 		Name:      name,
-		}, resource); 
+	}, resource)
 	if err != nil {
 		klog.Errorf("unable to get resource %s/%s", namespace, name)
 		return nil, err
@@ -110,7 +116,7 @@ func (k *K8sClient) GetResource(resource *unstructured.Unstructured, namespace s
 }
 
 func (k *K8sClient) ListResource(resourceList *unstructured.UnstructuredList) (*unstructured.UnstructuredList, error) {
-	err := k.Client.List(context.TODO(), resourceList)
+	err := k.List(context.TODO(), resourceList)
 	if err != nil {
 		klog.ErrorS(err, "unable to list resource")
 		return nil, err
@@ -119,19 +125,19 @@ func (k *K8sClient) ListResource(resourceList *unstructured.UnstructuredList) (*
 }
 
 func (k *K8sClient) CreateOrUpdateResource(resource *unstructured.Unstructured) error {
-	if err := k.Client.Create(context.TODO(), resource); err == nil {
-		klog.Infof("created resource %s", resource.GetName())
+	if err := k.Create(context.TODO(), resource); err == nil {
+		klog.V(2).Infof("created resource %s", resource.GetName())
 		return nil
 	} else if errors.IsAlreadyExists(err) {
 		klog.Infof("resource %s already exists, trying update instead", resource.GetName())
 		oldResource := &unstructured.Unstructured{}
 		oldResource.SetGroupVersionKind(resource.GroupVersionKind())
-		_ = k.Client.Get(context.TODO(), client.ObjectKey{
+		_ = k.Get(context.TODO(), client.ObjectKey{
 			Namespace: resource.GetNamespace(),
 			Name:      resource.GetName(),
 		}, oldResource)
 		resource.SetResourceVersion(oldResource.GetResourceVersion())
-		if err := k.Client.Update(context.TODO(), resource); err != nil {
+		if err := k.Update(context.TODO(), resource); err != nil {
 			klog.Errorf("unable to update resource %s", resource.GetName())
 			return err
 		}
@@ -144,7 +150,7 @@ func (k *K8sClient) CreateOrUpdateResource(resource *unstructured.Unstructured) 
 }
 
 func (k *K8sClient) DeleteResource(resource *unstructured.Unstructured) error {
-	err := k.Client.Delete(context.TODO(), resource)
+	err := k.Delete(context.TODO(), resource)
 	if err != nil {
 		klog.Errorf("unable to delete resource %s", resource.GetName())
 		return err
