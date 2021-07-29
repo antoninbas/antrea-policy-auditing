@@ -1,7 +1,7 @@
 package gitops
 
 import (
-	"strings"
+	"path/filepath"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	auditv1 "k8s.io/apiserver/pkg/apis/audit/v1"
@@ -24,13 +24,7 @@ var resourceMap = map[string]string{
 }
 
 func computePath(dir string, resource string, namespace string, file string) string {
-	path := []string{}
-	for _, part := range []string{dir, resource, namespace, file} {
-		if part != "" {
-			path = append(path, part)
-		}
-	}
-	return strings.Join(path, "/")
+	return filepath.Join(dir, resource, namespace, file)
 }
 
 func getAbsRepoPath(dir string, event auditv1.Event) string {
