@@ -22,18 +22,12 @@ type K8sClient struct {
 }
 
 func NewKubernetes() (*K8sClient, error) {
-	var config *rest.Config
-	kubeconfig, hasIt := os.LookupEnv("KUBECONFIG")
-	if !hasIt {
-		kubeconfig = clientcmd.RecommendedHomeFile
-	}
-	if _, err := os.Stat(kubeconfig); kubeconfig == clientcmd.RecommendedHomeFile && os.IsNotExist(err) {
-		config, err = rest.InClusterConfig()
-		if err != nil {
-			klog.ErrorS(err, "unable to create InClusterConfig")
-			return nil, err
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		kubeconfig, hasIt := os.LookupEnv("KUBECONFIG")
+		if !hasIt {
+			kubeconfig = clientcmd.RecommendedHomeFile
 		}
-	} else {
 		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
 		if err != nil {
 			klog.ErrorS(err, "unable to build config from flags, check that your KUBECONFIG file is correct!")
