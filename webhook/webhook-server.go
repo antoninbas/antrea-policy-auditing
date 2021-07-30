@@ -22,7 +22,9 @@ type Filters struct {
 	Author   string    `json:"author"`
 	Since    time.Time `json:"since"`
 	Until    time.Time `json:"until"`
-	FileName string    `json:"filename"`
+	Resource string    `json:"resource"`
+    Namespace string `json:"namespace"`
+    Name string `json:"name"`
 }
 
 type rollbackRequest struct {
@@ -80,15 +82,15 @@ func changes(w http.ResponseWriter, r *http.Request, cr *gitops.CustomRepo) {
     }
     resource := ""
     if len(filts["resource"]) > 0 {
-        author = filts["resource"][0]
+        resource = filts["resource"][0]
     }
     namespace := ""
     if len(filts["namespace"]) > 0 {
-        author = filts["namespace"][0]
+        namespace = filts["namespace"][0]
     }
     name := ""
     if len(filts["name"]) > 0 {
-        author = filts["name"][0]
+        name = filts["name"][0]
     }
 	commits, err := cr.FilterCommits(&author, &since, &until, &resource, &namespace, &name)
 	if err != nil {

@@ -13,7 +13,9 @@ import (
 var author string
 var since string
 var until string
-var filename string
+var resource string
+var namespace string
+var name string
 
 var commandName = path.Base(os.Args[0])
 
@@ -25,8 +27,8 @@ var rootCmd = &cobra.Command{
 
 func getURL() (string) {
     qstn := false
-    flags := []string{author, since, until, filename}
-    flagnames := []string{"author", "since", "until", "filename"}
+    flags := []string{author, since, until, resource, namespace, name}
+    flagnames := []string{"author", "since", "until", "resource", "namespace", "name"}
     url := "http://localhost:8008/changes?"
     for f, flag := range flags {
         if flag != "" {
@@ -64,7 +66,9 @@ func init() {
     getCmd.Flags().StringVarP(&author, "author", "a", "", "author of changes")
     getCmd.Flags().StringVarP(&since, "since", "s", "", "start of time range")
     getCmd.Flags().StringVarP(&until, "until", "u", "", "end of time range")
-    getCmd.Flags().StringVarP(&filename, "resource", "r", "", "resource name:q")
+    getCmd.Flags().StringVarP(&resource, "resource", "r", "", "resource nameto filter commits by")
+    getCmd.Flags().StringVarP(&namespace, "namespace", "p", "", "namespace to filter commits by")
+    getCmd.Flags().StringVarP(&name, "name", "n", "", "name to filter commits by")
     rootCmd.AddCommand(getCmd)
 }
 

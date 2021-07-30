@@ -85,7 +85,7 @@ func SetupRepo(k8s *K8sClient, mode StorageModeType, dir string) (*CustomRepo, e
 		return nil, fmt.Errorf("mode must be memory(mem) or disk(disk), '%s' is not valid", mode)
 	}
     if mode == "mem" && dir != "" {
-        return git.ErrRepositoryAlreadyExists
+        return nil, git.ErrRepositoryAlreadyExists
     }
 	storer := memory.NewStorage()
 	fs := memfs.New()
