@@ -2,19 +2,19 @@ package gitops
 
 import (
 	"os"
-
-	"k8s.io/klog"
 )
 
 const (
-	svcAcctNameEnvKey  = "SERVICEACCOUNT_NAME"
-	podNamespaceEnvKey = "POD_NAMESPACE"
+	svcAcctNameEnvKey   = "SERVICEACCOUNT_NAME"
+	svcAcctDefault      = "audit-account"
+	podNamespaceEnvKey  = "POD_NAMESPACE"
+	podNamespaceDefault = "default"
 )
 
 func GetAuditServiceAccount() string {
 	svcAcctName := os.Getenv(svcAcctNameEnvKey)
 	if svcAcctName == "" {
-		svcAcctName = "antrea-audit"
+		svcAcctName = svcAcctDefault
 	}
 	return svcAcctName
 }
@@ -22,7 +22,7 @@ func GetAuditServiceAccount() string {
 func GetAuditPodNamespace() string {
 	podNamespace := os.Getenv(podNamespaceEnvKey)
 	if podNamespace == "" {
-		klog.Warningf("Environment variable %s not found", podNamespaceEnvKey)
+		podNamespace = podNamespaceDefault
 	}
 	return podNamespace
 }
