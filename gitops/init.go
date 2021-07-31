@@ -1,7 +1,7 @@
 package gitops
 
 import (
-	"errors"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"sync"
@@ -13,18 +13,65 @@ import (
 	billy "github.com/go-git/go-billy/v5"
 	memfs "github.com/go-git/go-billy/v5/memfs"
 	memory "github.com/go-git/go-git/v5/storage/memory"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 type StorageModeType string
+
 const (
-    StorageModeDisk StorageModeType = "Disk"
-    StorageModeInMemory StorageModeType = "InMemory"
+	StorageModeDisk     StorageModeType = "Disk"
+	StorageModeInMemory StorageModeType = "InMemory"
 )
+
+var gvkDirMap = map[schema.GroupVersionKind]string{
+	{Group: "networking.k8s.io",
+		Version: "v1",
+		Kind:    "NetworkPolicyList",
+	}: "k8s-policies",
+	{Group: "crd.antrea.io",
+		Version: "v1alpha1",
+		Kind:    "NetworkPolicyList",
+	}: "antrea-policies",
+	{Group: "crd.antrea.io",
+		Version: "v1alpha1",
+		Kind:    "ClusterNetworkPolicyList",
+	}: "antrea-cluster-policies",
+	{Group: "crd.antrea.io",
+		Version: "v1alpha1",
+		Kind:    "TierList",
+	}: "antrea-tiers",
+}
+
+func getAllResourceListTypes() []schema.GroupVersionKind {
+	return []schema.GroupVersionKind{
+		{
+			Group:   "networking.k8s.io",
+			Version: "v1",
+			Kind:    "NetworkPolicyList",
+		},
+		{
+			Group:   "crd.antrea.io",
+			Version: "v1alpha1",
+			Kind:    "NetworkPolicyList",
+		},
+		{
+			Group:   "crd.antrea.io",
+			Version: "v1alpha1",
+			Kind:    "ClusterNetworkPolicyList",
+		},
+		{
+			Group:   "crd.antrea.io",
+			Version: "v1alpha1",
+			Kind:    "TierList",
+		},
+	}
+}
 
 type CustomRepo struct {
 	Repo           *git.Repository
-	K8s            *KubeClients
+	K8s            *K8sClient
 	RollbackMode   bool
 	StorageMode    StorageModeType
 	ServiceAccount string
@@ -33,17 +80,18 @@ type CustomRepo struct {
 	Mutex          sync.Mutex
 }
 
-func SetupRepo(k *KubeClients, mode StorageModeType, dir string) (*CustomRepo, error) {
+func SetupRepo(k8s *K8sClient, mode StorageModeType, dir string) (*CustomRepo, error) {
 	if mode != StorageModeDisk && mode != StorageModeInMemory {
-		tmp := errors.New("mode must be memory(mem) or disk(disk)")
-		klog.ErrorS(tmp, "incorrect mode")
-		return nil, tmp
+		return nil, fmt.Errorf("mode must be memory(mem) or disk(disk), '%s' is not valid", mode)
 	}
+    if mode == "mem" && dir != "" {
+        return nil, git.ErrRepositoryAlreadyExists
+    }
 	storer := memory.NewStorage()
 	fs := memfs.New()
-	svcAcct := "system:serviceaccount:" + GetAuditPodNamespace() + GetAuditServiceAccount()
+	svcAcct := "system:serviceaccount:" + GetAuditPodNamespace() + ":" + GetAuditServiceAccount()
 	cr := CustomRepo{
-		K8s:            k,
+		K8s:            k8s,
 		RollbackMode:   false,
 		StorageMode:    mode,
 		ServiceAccount: svcAcct,
@@ -55,13 +103,13 @@ func SetupRepo(k *KubeClients, mode StorageModeType, dir string) (*CustomRepo, e
 	r, err := cr.createRepo(storer)
 	cr.Repo = r
 	if err == git.ErrRepositoryAlreadyExists {
-		klog.V(2).InfoS("network policy repository already exists - skipping initialization")
+		klog.V(2).InfoS("resource repository already exists - skipping initialization")
 		return &cr, nil
 	} else if err != nil {
-		klog.ErrorS(err, "unable to create network policy repository")
+		klog.ErrorS(err, "unable to create resource repository")
 		return nil, err
 	}
-	if err := cr.addResources(); err != nil {
+	if err := cr.addAllResources(); err != nil {
 		klog.ErrorS(err, "unable to add resource yamls to repository")
 		return nil, err
 	}
@@ -77,7 +125,7 @@ func (cr *CustomRepo) createRepo(storer *memory.Storage) (*git.Repository, error
 	if cr.StorageMode == StorageModeInMemory {
 		r, err := git.Init(storer, cr.Fs)
 		if err == git.ErrRepositoryAlreadyExists {
-			klog.V(2).InfoS("network policy repository already exists - skipping initialization")
+			klog.V(2).InfoS("resource repository already exists - skipping initialization")
 			return nil, err
 		} else if err != nil {
 			klog.ErrorS(err, "unable to initialize git repo")
@@ -98,7 +146,7 @@ func (cr *CustomRepo) createRepo(storer *memory.Storage) (*git.Repository, error
 	cr.Dir += "/resource-auditing-repo"
 	r, err := git.PlainInit(cr.Dir, false)
 	if err == git.ErrRepositoryAlreadyExists {
-		klog.V(2).InfoS("network policy repository already exists - skipping initialization")
+		klog.V(2).InfoS("resource repository already exists - skipping initialization")
 		r, err := git.PlainOpen(cr.Dir)
 		if err != nil {
 			klog.ErrorS(err, "unable to retrieve existing repository")
@@ -112,207 +160,93 @@ func (cr *CustomRepo) createRepo(storer *memory.Storage) (*git.Repository, error
 	return r, nil
 }
 
-func (cr *CustomRepo) addResources() error {
-	if cr.StorageMode == StorageModeDisk {
-		os.Mkdir(cr.Dir+"/k8s-policies", 0700)
-		os.Mkdir(cr.Dir+"/antrea-policies", 0700)
-		os.Mkdir(cr.Dir+"/antrea-cluster-policies", 0700)
-		os.Mkdir(cr.Dir+"/antrea-tiers", 0700)
-	} else {
-		cr.Fs.MkdirAll("k8s-policies", 0700)
-		cr.Fs.MkdirAll("antrea-policies", 0700)
-		cr.Fs.MkdirAll("antrea-cluster-policies", 0700)
-		cr.Fs.MkdirAll("antrea-tiers", 0700)
-	}
-	if err := cr.addK8sPolicies(); err != nil {
-		klog.ErrorS(err, "unable to add K8s network policies to repository")
-		return err
-	}
-	if err := cr.addAntreaPolicies(); err != nil {
-		klog.ErrorS(err, "unable to add Antrea network policies to repository")
-		return err
-	}
-	if err := cr.addAntreaClusterPolicies(); err != nil {
-		klog.ErrorS(err, "unable to add Antrea cluster network policies to repository")
-		return err
-	}
-	if err := cr.addAntreaTiers(); err != nil {
-		klog.ErrorS(err, "unable to add Antrea tiers to repository")
-		return err
+func (cr *CustomRepo) addAllResources() error {
+	for _, resourceListType := range getAllResourceListTypes() {
+		if err := cr.createResourceDir(resourceListType); err != nil {
+			klog.ErrorS(err, "unable to create resource directory",
+				"gvk", resourceListType.String())
+			return err
+		}
+		if err := cr.addResource(resourceListType); err != nil {
+			klog.ErrorS(err, "unable to add resource",
+				"gvk", resourceListType.String())
+			return err
+		}
 	}
 	return nil
 }
 
-func (cr *CustomRepo) addK8sPolicies() error {
-	policies, err := cr.K8s.GetK8sPolicies()
+func (cr *CustomRepo) addResource(resourceList schema.GroupVersionKind) error {
+	list := &unstructured.UnstructuredList{}
+	list.SetGroupVersionKind(resourceList)
+	resources, err := cr.K8s.ListResource(list)
 	if err != nil {
+		klog.ErrorS(err, "could not list resource",
+			"APIVersion", list.GetAPIVersion(),
+			"Kind", list.GetKind())
 		return err
 	}
 	var namespaces []string
-	for _, np := range policies.Items {
-		np.TypeMeta = metav1.TypeMeta{
-			Kind:       "NetworkPolicy",
-			APIVersion: "networking.k8s.io/v1",
-		}
-		np.ObjectMeta.UID = ""
-		np.ObjectMeta.Generation = 0
-		np.ObjectMeta.ManagedFields = nil
-		delete(np.ObjectMeta.Annotations, "kubectl.kubernetes.io/last-applied-configuration")
-		if !StringInSlice(np.Namespace, namespaces) {
-			namespaces = append(namespaces, np.Namespace)
+	for i, np := range resources.Items {
+		clearFields(&resources.Items[i])
+		name := np.GetName()
+		namespace := np.GetNamespace()
+		if !stringInSlice(namespace, namespaces) {
+			namespaces = append(namespaces, namespace)
 			if cr.StorageMode == StorageModeDisk {
-				os.Mkdir(cr.Dir+"/k8s-policies/"+np.Namespace, 0700)
+				namespaceDir := computePath(cr.Dir, gvkDirMap[resourceList], namespace, "")
+				os.Mkdir(namespaceDir, 0700)
 			} else {
-				cr.Fs.MkdirAll("k8s-policies/"+np.Namespace, 0700)
+				namespaceDir := computePath("", gvkDirMap[resourceList], namespace, "")
+				cr.Fs.MkdirAll(namespaceDir, 0700)
 			}
 		}
-		path := cr.Dir + "/k8s-policies/" + np.Namespace + "/" + np.Name + ".yaml"
-		klog.V(2).Infof("Added K8s policy at resource-auditing-repo/k8s-policies/" + np.Namespace + "/" + np.Name + ".yaml")
-		y, err := yaml.Marshal(&np)
+		path := computePath(cr.Dir, gvkDirMap[resourceList], namespace, name+".yaml")
+		y, err := yaml.Marshal(&resources.Items[i])
 		if err != nil {
-			klog.ErrorS(err, "unable to marshal policy config")
+			klog.ErrorS(err, "unable to marshal resource config")
 			return err
 		}
-		if cr.StorageMode == StorageModeDisk {
-			err = ioutil.WriteFile(path, y, 0644)
-			if err != nil {
-				klog.ErrorS(err, "unable to write policy config to file")
-				return err
-			}
-		} else {
-			newFile, err := cr.Fs.Create(path)
-			if err != nil {
-				klog.ErrorS(err, "unable to write policy config to file")
-				return err
-			}
-			newFile.Write(y)
-			newFile.Close()
+		if err := cr.writeFileToPath(path, y); err != nil {
+			klog.ErrorS(err, "unable to write yaml to path", "path", path)
+			return err
 		}
+		klog.V(2).InfoS("Added resource", "path", path)
 	}
 	return nil
 }
 
-func (cr *CustomRepo) addAntreaPolicies() error {
-	policies, err := cr.K8s.GetAntreaPolicies()
-	if err != nil {
-		return err
+func (cr *CustomRepo) createResourceDir(resourceList schema.GroupVersionKind) error {
+	var err error
+	if cr.StorageMode == StorageModeDisk {
+		resourceDir := computePath(cr.Dir, gvkDirMap[resourceList], "", "")
+		err = os.Mkdir(resourceDir, 0700)
+	} else {
+		resourceDir := computePath("", gvkDirMap[resourceList], "", "")
+		err = cr.Fs.MkdirAll(resourceDir, 0700)
 	}
-	var namespaces []string
-	for _, np := range policies.Items {
-		np.TypeMeta = metav1.TypeMeta{
-			Kind:       "NetworkPolicy",
-			APIVersion: "crd.antrea.io/v1alpha1",
-		}
-		np.ObjectMeta.UID = ""
-		np.ObjectMeta.Generation = 0
-		np.ObjectMeta.ManagedFields = nil
-		delete(np.ObjectMeta.Annotations, "kubectl.kubernetes.io/last-applied-configuration")
-		if !StringInSlice(np.Namespace, namespaces) {
-			namespaces = append(namespaces, np.Namespace)
-			os.Mkdir(cr.Dir+"/antrea-policies/"+np.Namespace, 0700)
-		}
-		path := cr.Dir + "/antrea-policies/" + np.Namespace + "/" + np.Name + ".yaml"
-		klog.V(2).Infof("Added Antrea policy at resource-auditing-repo/antrea-policies/" + np.Namespace + "/" + np.Name + ".yaml")
-		y, err := yaml.Marshal(&np)
-		if err != nil {
-			klog.ErrorS(err, "unable to marshal policy config")
-			return err
-		}
-		if cr.StorageMode == StorageModeDisk {
-			err = ioutil.WriteFile(path, y, 0644)
-			if err != nil {
-				klog.ErrorS(err, "unable to write policy config to file")
-				return err
-			}
-		} else {
-			newFile, err := cr.Fs.Create(path)
-			if err != nil {
-				klog.ErrorS(err, "unable to write policy config to file")
-				return err
-			}
-			newFile.Write(y)
-			newFile.Close()
-		}
+	if err != nil {
+		klog.ErrorS(err, "unable to create resource directory")
+		return err
 	}
 	return nil
 }
 
-func (cr *CustomRepo) addAntreaClusterPolicies() error {
-	policies, err := cr.K8s.GetAntreaClusterPolicies()
-	if err != nil {
-		return err
-	}
-	for _, np := range policies.Items {
-		np.TypeMeta = metav1.TypeMeta{
-			Kind:       "ClusterNetworkPolicy",
-			APIVersion: "crd.antrea.io/v1alpha1",
-		}
-		np.ObjectMeta.UID = ""
-		np.ObjectMeta.Generation = 0
-		np.ObjectMeta.ManagedFields = nil
-		delete(np.ObjectMeta.Annotations, "kubectl.kubernetes.io/last-applied-configuration")
-		path := cr.Dir + "/antrea-cluster-policies/" + np.Name + ".yaml"
-		klog.V(2).Infof("Added Antrea cluster policy at resource-auditing-repo/antrea-cluster-policies/" + np.Name + ".yaml")
-		y, err := yaml.Marshal(&np)
+func (cr *CustomRepo) writeFileToPath(path string, yaml []byte) error {
+	if cr.StorageMode == StorageModeDisk {
+		err := ioutil.WriteFile(path, yaml, 0600)
 		if err != nil {
-			klog.ErrorS(err, "unable to marshal policy config")
+			klog.ErrorS(err, "unable to write resource config to file")
 			return err
 		}
-		if cr.StorageMode == StorageModeDisk {
-			err = ioutil.WriteFile(path, y, 0644)
-			if err != nil {
-				klog.ErrorS(err, "unable to write policy config to file")
-				return err
-			}
-		} else {
-			newFile, err := cr.Fs.Create(path)
-			if err != nil {
-				klog.ErrorS(err, "unable to write policy config to file")
-				return err
-			}
-			newFile.Write(y)
-			newFile.Close()
-		}
-	}
-	return nil
-}
-
-func (cr *CustomRepo) addAntreaTiers() error {
-	tiers, err := cr.K8s.GetAntreaTiers()
-	if err != nil {
-		return err
-	}
-	for _, tier := range tiers.Items {
-		tier.TypeMeta = metav1.TypeMeta{
-			Kind:       "Tier",
-			APIVersion: "crd.antrea.io/v1alpha1",
-		}
-		tier.ObjectMeta.UID = ""
-		tier.ObjectMeta.Generation = 0
-		tier.ObjectMeta.ManagedFields = nil
-		delete(tier.ObjectMeta.Annotations, "kubectl.kubernetes.io/last-applied-configuration")
-		path := cr.Dir + "/antrea-tiers/" + tier.Name + ".yaml"
-		klog.V(2).Infof("Added Antrea tier at resource-auditing-repo/antrea-tiers/" + tier.Name + ".yaml")
-		y, err := yaml.Marshal(&tier)
+	} else {
+		newFile, err := cr.Fs.Create(path)
 		if err != nil {
-			klog.ErrorS(err, "unable to marshal tier config")
+			klog.ErrorS(err, "unable to write resource config to file")
 			return err
 		}
-		if cr.StorageMode == StorageModeDisk {
-			err = ioutil.WriteFile(path, y, 0644)
-			if err != nil {
-				klog.ErrorS(err, "unable to write policy config to file")
-				return err
-			}
-		} else {
-			newFile, err := cr.Fs.Create(path)
-			if err != nil {
-				klog.ErrorS(err, "unable to write policy config to file")
-				return err
-			}
-			newFile.Write(y)
-			newFile.Close()
-		}
+		newFile.Write(yaml)
+		newFile.Close()
 	}
 	return nil
 }

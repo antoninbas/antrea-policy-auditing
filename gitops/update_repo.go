@@ -9,17 +9,10 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/object"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	auditv1 "k8s.io/apiserver/pkg/apis/audit/v1"
 	"k8s.io/klog/v2"
 )
-
-type AuditResource struct {
-	Kind       string                 `json:"kind"`
-	APIVersion string                 `json:"apiVersion"`
-	Metadata   metav1.ObjectMeta      `json:"metadata"`
-	Spec       map[string]interface{} `json:"spec"`
-}
 
 func (cr *CustomRepo) AddAndCommit(username string, email string, message string) error {
 	w, err := cr.Repo.Worktree()
@@ -47,15 +40,12 @@ func (cr *CustomRepo) AddAndCommit(username string, email string, message string
 }
 
 func (cr *CustomRepo) modifyFile(event auditv1.Event) error {
-	resource := AuditResource{}
+	resource := unstructured.Unstructured{}
 	if err := json.Unmarshal(event.ResponseObject.Raw, &resource); err != nil {
 		klog.ErrorS(err, "unable to unmarshal ResponseObject resource config")
 		return err
 	}
-	resource.Metadata.UID = ""
-	resource.Metadata.Generation = 0
-	resource.Metadata.ManagedFields = nil
-	delete(resource.Metadata.Annotations, "kubectl.kubernetes.io/last-applied-configuration")
+	clearFields(&resource)
 	y, err := yaml.Marshal(&resource)
 	if err != nil {
 		klog.ErrorS(err, "unable to marshal new resource config")
