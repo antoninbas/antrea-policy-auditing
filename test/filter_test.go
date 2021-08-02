@@ -31,7 +31,7 @@ func TestFilterCommits(t *testing.T) {
 	}
 	until := time.Now()
 
-	commits, err := cr.FilterCommits(&empty, &start, &until, &empty)
+	commits, err := cr.FilterCommits(&empty, &start, &until, &empty, &empty, &empty)
 	if err != nil {
 		t.Errorf("Error (TestFilterCommits): unable to filter commits")
 	}

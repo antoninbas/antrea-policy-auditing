@@ -12,6 +12,9 @@ import (
 	crdv1alpha1 "antrea.io/antrea/pkg/apis/crd/v1alpha1"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/stretchr/testify/assert"
+    "github.com/go-git/go-git/v5"
+    memory "github.com/go-git/go-git/v5/storage/memory"
+    billy "github.com/go-git/go-billy/v5"
 
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -292,4 +295,16 @@ func TestRollback(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error (TestRollback): unable to get antrea policy after rollback")
 	}
+	ligma := []int{1,2,3}
+    assert.Equal(t, 1, len(ligma),
+		"Error (TestRollback): unexpected number of antrea policies after rollback")
+}
+
+func SetupMemRepo(storer *memory.Storage, fs billy.Filesystem) error {
+	_, err := git.Init(storer, fs)
+	fs.MkdirAll("k8s-policies", 0700)
+	fs.MkdirAll("antrea-policies", 0700)
+	fs.MkdirAll("antrea-cluster-policies", 0700)
+	fs.MkdirAll("antrea-tiers", 0700)
+	return err
 }

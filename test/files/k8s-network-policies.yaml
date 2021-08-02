@@ -6,7 +6,7 @@ metadata:
 spec:
   podSelector:
     matchLabels:
-      app: nginx
+      app: busybox
   policyTypes:
   - Ingress
   ingress:
@@ -25,7 +25,7 @@ metadata:
 spec:
   podSelector:
     matchLabels:
-      app: nginx
+      app: busybox
   policyTypes:
   - Ingress
   ingress:

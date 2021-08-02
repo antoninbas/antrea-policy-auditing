@@ -42,8 +42,7 @@ var (
 			},
 		},
 		expPath: "/k8s-policies/nsA/npA.yaml",
-		expYaml: 
-`apiVersion: networking.k8s.io/v1
+		expYaml: `apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: npA
@@ -196,8 +195,7 @@ spec:
 			},
 		},
 		expPath: "/antrea-policies/nsA/anpA.yaml",
-		expYaml: 
-`apiVersion: crd.antrea.io/v1alpha1
+		expYaml: `apiVersion: crd.antrea.io/v1alpha1
 kind: NetworkPolicy
 metadata:
   name: anpA
@@ -282,8 +280,7 @@ spec:
 			},
 		},
 		expPath: "/antrea-cluster-policies/cnpA.yaml",
-		expYaml: 
-`apiVersion: crd.antrea.io/v1alpha1
+		expYaml: `apiVersion: crd.antrea.io/v1alpha1
 kind: ClusterNetworkPolicy
 metadata:
   name: cnpA
