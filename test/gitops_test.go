@@ -21,8 +21,8 @@ import (
 
 var (
 	directory = ""
-	np1 = &networkingv1.NetworkPolicy{
-		TypeMeta: metav1.TypeMeta{Kind: "NetworkPolicy", APIVersion: "networking.k8s.io/v1"},
+	np1       = &networkingv1.NetworkPolicy{
+		TypeMeta:   metav1.TypeMeta{Kind: "NetworkPolicy", APIVersion: "networking.k8s.io/v1"},
 		ObjectMeta: metav1.ObjectMeta{Namespace: "nsA", Name: "npA", UID: "uidA"},
 		Spec: networkingv1.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{},
@@ -31,7 +31,7 @@ var (
 		},
 	}
 	np2 = &networkingv1.NetworkPolicy{
-		TypeMeta: metav1.TypeMeta{Kind: "NetworkPolicy", APIVersion: "networking.k8s.io/v1"},
+		TypeMeta:   metav1.TypeMeta{Kind: "NetworkPolicy", APIVersion: "networking.k8s.io/v1"},
 		ObjectMeta: metav1.ObjectMeta{Namespace: "nsA", Name: "npB", UID: "uidB"},
 		Spec: networkingv1.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{},
@@ -40,7 +40,7 @@ var (
 		},
 	}
 	anp1 = &crdv1alpha1.NetworkPolicy{
-		TypeMeta: metav1.TypeMeta{Kind: "NetworkPolicy", APIVersion: "crd.antrea.io/v1alpha1"},
+		TypeMeta:   metav1.TypeMeta{Kind: "NetworkPolicy", APIVersion: "crd.antrea.io/v1alpha1"},
 		ObjectMeta: metav1.ObjectMeta{Namespace: "nsA", Name: "anpA", UID: "uidC"},
 		Spec: crdv1alpha1.NetworkPolicySpec{
 			AppliedTo: []crdv1alpha1.NetworkPolicyPeer{
@@ -149,7 +149,7 @@ func TestTagging(t *testing.T) {
 	}
 
 	// Attempt to add tag with the same name
-	if err := cr.TagCommit(h.Hash().String(), "test-tag", testSig); err != nil {
+	if err := cr.TagCommit(h.Hash().String(), "test-tag", testSig); err.Error() != "tag already exists" {
 		t.Errorf("Error (TestTagging): unable to handle duplicate tag creation")
 	}
 	tags, _ := cr.Repo.TagObjects()
@@ -215,14 +215,12 @@ func TestRollback(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error (TestRollback): unable to convert to json")
 	}
-	fmt.Println(string(j))
 	if err := json.Unmarshal(j, &r); err != nil {
 		t.Errorf("Error (TestRollback): unable to unmarshal into unstructured object")
 	}
 	if err := k8s.CreateOrUpdateResource(&r); err != nil {
 		t.Errorf("Error (TestRollback): unable to update resource")
 	}
-	fmt.Println("got here")
 
 	r = unstructured.Unstructured{}
 	r.SetGroupVersionKind(schema.GroupVersionKind{
@@ -267,7 +265,7 @@ func TestRollback(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error (TestRollback): unable to get rollback commit object")
 	}
-	assert.Equal(t, "Rollback to commit " + h.Hash().String(), rollbackCommit.Message,
+	assert.Equal(t, "Rollback to commit "+h.Hash().String(), rollbackCommit.Message,
 		"Error (TestRollback): rollback commit not found, head commit message mismatch")
 
 	// Check cluster state
@@ -281,7 +279,7 @@ func TestRollback(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error (TestRollback): unable to get policy after rollback")
 	}
-	assert.Equal(t, "", np.GetClusterName(), 
+	assert.Equal(t, "", np.GetClusterName(),
 		"Error (TestRollback): updated field should be empty after rollback")
 
 	res = &unstructured.Unstructured{}

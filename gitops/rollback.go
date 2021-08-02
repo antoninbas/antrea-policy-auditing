@@ -3,6 +3,7 @@ package gitops
 import (
 	"encoding/json"
 	"io/ioutil"
+	"path/filepath"
 
 	"github.com/ghodss/yaml"
 	"github.com/go-git/go-git/v5"
@@ -50,9 +51,11 @@ func (cr *CustomRepo) HashToCommit(commitSha string) *object.Commit {
 func (cr *CustomRepo) RollbackRepo(targetCommit *object.Commit) error {
 	cr.Mutex.Lock()
 	defer cr.Mutex.Unlock()
+
 	klog.V(2).Infof("Rollback to commit %s initiated, ignoring all non-rollback generated audits",
 		targetCommit.Hash.String())
 	cr.RollbackMode = true
+
 	// Get patch between head and target commit
 	w, err := cr.Repo.Worktree()
 	if err != nil {
@@ -82,12 +85,12 @@ func (cr *CustomRepo) RollbackRepo(targetCommit *object.Commit) error {
 	}
 
 	// Update repo using resets
-	err = resetWorktree(w, targetCommit.Hash, true)
+	err = resetWorktree(w, targetCommit.Hash, git.HardReset)
 	if err != nil {
 		klog.ErrorS(err, "unable to hard reset repo")
 		return err
 	}
-	err = resetWorktree(w, h.Hash(), false)
+	err = resetWorktree(w, h.Hash(), git.SoftReset)
 	if err != nil {
 		klog.ErrorS(err, "unable to soft reset repo")
 		return err
@@ -112,19 +115,10 @@ func (cr *CustomRepo) RollbackRepo(targetCommit *object.Commit) error {
 	return nil
 }
 
-// Resets worktree - resetMode boolean determines hard or soft reset
-func resetWorktree(w *git.Worktree, hash plumbing.Hash, resetMode bool) error {
-	var options *git.ResetOptions
-	if resetMode {
-		options = &git.ResetOptions{
-			Commit: hash,
-			Mode:   git.HardReset,
-		}
-	} else {
-		options = &git.ResetOptions{
-			Commit: hash,
-			Mode:   git.SoftReset,
-		}
+func resetWorktree(w *git.Worktree, hash plumbing.Hash, mode git.ResetMode) error {
+	options := &git.ResetOptions{
+		Commit: hash,
+		Mode:   mode,
 	}
 	if err := w.Reset(options); err != nil {
 		klog.ErrorS(err, "unable to reset worktree")
@@ -137,7 +131,7 @@ func (cr *CustomRepo) doDeletePatch(patch *object.Patch) error {
 	for _, filePatch := range patch.FilePatches() {
 		fromFile, toFile := filePatch.Files()
 		if toFile == nil {
-			path := cr.Dir + "/" + fromFile.Path()
+			path := filepath.Join(cr.Dir, fromFile.Path())
 			resource, err := cr.getResourceByPath(path)
 			if err != nil {
 				klog.Errorf("unable to read resource at path %s", path)
@@ -157,7 +151,7 @@ func (cr *CustomRepo) doCreateUpdatePatch(patch *object.Patch) error {
 	for _, filePatch := range patch.FilePatches() {
 		_, toFile := filePatch.Files()
 		if toFile != nil {
-			path := cr.Dir + "/" + toFile.Path()
+			path := filepath.Join(cr.Dir, toFile.Path())
 			resource, err := cr.getResourceByPath(path)
 			if err != nil {
 				klog.Errorf("unable to read resource at path %s", path)
@@ -192,7 +186,7 @@ func (cr *CustomRepo) getResourceByPath(path string) (*unstructured.Unstructured
 		gvk.Group = "crd.antrea.io"
 		gvk.Version = "v1alpha1"
 	} else {
-		klog.ErrorS(err, "unknown apiVersion found", "version", apiVersion)
+		klog.ErrorS(err, "unknown apiVersion found", "apiVersion", apiVersion)
 		return nil, err
 	}
 	gvk.Kind = kind
