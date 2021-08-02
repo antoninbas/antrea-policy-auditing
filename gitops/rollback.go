@@ -2,6 +2,7 @@ package gitops
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"path/filepath"
 
@@ -11,7 +12,6 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"k8s.io/klog/v2"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -168,17 +168,14 @@ func (cr *CustomRepo) doCreateUpdatePatch(patch *object.Patch) error {
 }
 
 func (cr *CustomRepo) getResourceByPath(path string) (*unstructured.Unstructured, error) {
-	apiVersion, kind, err := cr.readMetadata(path)
-	if err != nil {
-		klog.ErrorS(err, "error while retrieving metadata from file")
-		return nil, err
-	}
 	resource := &unstructured.Unstructured{}
 	gvk := schema.GroupVersionKind{}
 	if err := cr.readResource(resource, path); err != nil {
 		klog.ErrorS(err, "unable to read resource")
 		return nil, err
 	}
+	apiVersion := resource.GetAPIVersion()
+	kind := resource.GetKind()
 	if apiVersion == "networking.k8s.io/v1" {
 		gvk.Group = "networking.k8s.io"
 		gvk.Version = "v1"
@@ -186,39 +183,11 @@ func (cr *CustomRepo) getResourceByPath(path string) (*unstructured.Unstructured
 		gvk.Group = "crd.antrea.io"
 		gvk.Version = "v1alpha1"
 	} else {
-		klog.ErrorS(err, "unknown apiVersion found", "apiVersion", apiVersion)
-		return nil, err
+		return nil, fmt.Errorf("unknown apiVersion found: %s", apiVersion)
 	}
 	gvk.Kind = kind
 	resource.SetGroupVersionKind(gvk)
 	return resource, nil
-}
-
-func (cr *CustomRepo) readMetadata(path string) (string, string, error) {
-	meta := metav1.TypeMeta{}
-	var y []byte
-	if cr.StorageMode == StorageModeDisk {
-		y, _ = ioutil.ReadFile(path)
-	} else {
-		fstat, _ := cr.Fs.Stat(path)
-		y = make([]byte, fstat.Size())
-		f, err := cr.Fs.Open(path)
-		if err != nil {
-			klog.ErrorS(err, "error opening file")
-			return "", "", err
-		}
-		f.Read(y)
-	}
-	j, err := yaml.YAMLToJSON(y)
-	if err != nil {
-		klog.ErrorS(err, "error converting from YAML to JSON")
-		return "", "", err
-	}
-	if err := json.Unmarshal(j, &meta); err != nil {
-		klog.ErrorS(err, "error while unmarshalling from file")
-		return "", "", err
-	}
-	return meta.APIVersion, meta.Kind, nil
 }
 
 func (cr *CustomRepo) readResource(resource *unstructured.Unstructured, path string) error {
