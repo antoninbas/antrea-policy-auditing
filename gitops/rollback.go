@@ -52,8 +52,8 @@ func (cr *CustomRepo) RollbackRepo(targetCommit *object.Commit) error {
 	cr.Mutex.Lock()
 	defer cr.Mutex.Unlock()
 
-	klog.V(2).Infof("Rollback to commit %s initiated, ignoring all non-rollback generated audits",
-		targetCommit.Hash.String())
+	klog.V(2).InfoS("Rollback initiated, ignoring all non-rollback generated audits",
+		"targetCommit", targetCommit.Hash.String())
 	cr.RollbackMode = true
 
 	// Get patch between head and target commit
@@ -111,7 +111,7 @@ func (cr *CustomRepo) RollbackRepo(targetCommit *object.Commit) error {
 		return err
 	}
 	cr.RollbackMode = false
-	klog.V(2).Infof("Rollback to commit %s successful", targetCommit.Hash.String())
+	klog.V(2).Infof("Rollback successful", "targetCommit", targetCommit.Hash.String())
 	return nil
 }
 
@@ -134,14 +134,15 @@ func (cr *CustomRepo) doDeletePatch(patch *object.Patch) error {
 			path := filepath.Join(cr.Dir, fromFile.Path())
 			resource, err := cr.getResourceByPath(path)
 			if err != nil {
-				klog.Errorf("unable to read resource at path %s", path)
+				klog.ErrorS(err, "unable to read resource", "path", path)
 				return err
 			}
 			if err := cr.K8s.DeleteResource(resource); err != nil {
-				klog.Errorf("unable to delete resource %s", resource.GetName())
+				klog.ErrorS(err, "unable to delete resource",
+					"resourceName", resource.GetName())
 				return err
 			}
-			klog.V(2).Infof("(Rollback) Deleted file at %s", path)
+			klog.V(2).Infof("(Rollback) Deleted file", "path", path)
 		}
 	}
 	return nil
@@ -154,14 +155,15 @@ func (cr *CustomRepo) doCreateUpdatePatch(patch *object.Patch) error {
 			path := filepath.Join(cr.Dir, toFile.Path())
 			resource, err := cr.getResourceByPath(path)
 			if err != nil {
-				klog.Errorf("unable to read resource at path %s", path)
+				klog.ErrorS(err, "unable to read resource", "path", path)
 				return err
 			}
 			if err := cr.K8s.CreateOrUpdateResource(resource); err != nil {
-				klog.Errorf("unable to create/update resource %s", resource.GetName())
+				klog.ErrorS(err, "unable to create/update resource",
+					"resourceName", resource.GetName())
 				return err
 			}
-			klog.V(2).Infof("(Rollback) Created/Updated file at %s", path)
+			klog.V(2).Infof("(Rollback) Created/Updated file", "path", path)
 		}
 	}
 	return nil

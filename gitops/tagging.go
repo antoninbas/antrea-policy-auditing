@@ -43,6 +43,6 @@ func setTag(r *git.Repository, commit_sha plumbing.Hash, tag string, tagger *obj
 		}
 		return err
 	}
-	klog.V(2).Infof("Tag created: %s", tag)
+	klog.V(2).InfoS("Tag created", "tagName", tag)
 	return nil
 }
