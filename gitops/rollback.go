@@ -21,31 +21,28 @@ func (cr *CustomRepo) TagToCommit(tag string) (*object.Commit, error) {
 	defer cr.Mutex.Unlock()
 	ref, err := cr.Repo.Tag(tag)
 	if err != nil {
-		klog.ErrorS(err, "could not retrieve tag reference")
-		return nil, err
+		return nil, fmt.Errorf("could not retrieve tag reference")
 	}
 	obj, err := cr.Repo.TagObject(ref.Hash())
 	if err != nil {
-		klog.ErrorS(err, "could not retrieve tag object")
-		return nil, err
+		return nil, fmt.Errorf("could not retrieve tag object")
 	}
 	commit, err := obj.Commit()
 	if err != nil {
-		klog.ErrorS(err, "could not get commit from tag object")
-		return nil, err
+		return nil, fmt.Errorf("could not get commit from tag object")
 	}
 	return commit, nil
 }
 
-func (cr *CustomRepo) HashToCommit(commitSha string) *object.Commit {
+func (cr *CustomRepo) HashToCommit(commitSha string) (*object.Commit, error) {
 	cr.Mutex.Lock()
 	defer cr.Mutex.Unlock()
 	hash := plumbing.NewHash(commitSha)
 	commit, err := cr.Repo.CommitObject(hash)
 	if err != nil {
-		klog.ErrorS(err, "could not get commit from hash")
+		return nil, fmt.Errorf("could not get commit from hash")
 	}
-	return commit
+	return commit, nil
 }
 
 func (cr *CustomRepo) RollbackRepo(targetCommit *object.Commit) error {
@@ -59,47 +56,39 @@ func (cr *CustomRepo) RollbackRepo(targetCommit *object.Commit) error {
 	// Get patch between head and target commit
 	w, err := cr.Repo.Worktree()
 	if err != nil {
-		klog.ErrorS(err, "unable to get git worktree from repository")
-		return err
+		return fmt.Errorf("unable to get git worktree from repository")
 	}
 	h, err := cr.Repo.Head()
 	if err != nil {
-		klog.ErrorS(err, "unable to get repo head")
-		return err
+		return fmt.Errorf("unable to get repo head")
 	}
 	headCommit, err := cr.Repo.CommitObject(h.Hash())
 	if err != nil {
-		klog.ErrorS(err, "unable to get head commit")
-		return err
+		return fmt.Errorf("unable to get head commit")
 	}
 	patch, err := headCommit.Patch(targetCommit)
 	if err != nil {
-		klog.ErrorS(err, "unable to get patch between commits")
-		return err
+		return fmt.Errorf("unable to get patch between commits")
 	}
 
 	// Must do cluster delete requests before resetting in order to be able to read metadata from files
 	if err := cr.doDeletePatch(patch); err != nil {
-		klog.ErrorS(err, "could not patch cluster to old commit state (delete phase)")
-		return err
+		return fmt.Errorf("could not patch cluster to old commit state (delete phase): %w", err)
 	}
 
 	// Update repo using resets
 	err = resetWorktree(w, targetCommit.Hash, git.HardReset)
 	if err != nil {
-		klog.ErrorS(err, "unable to hard reset repo")
-		return err
+		return fmt.Errorf("unable to hard reset repo: %w", err)
 	}
 	err = resetWorktree(w, h.Hash(), git.SoftReset)
 	if err != nil {
-		klog.ErrorS(err, "unable to soft reset repo")
-		return err
+		return fmt.Errorf("unable to hard reset repo: %w", err)
 	}
 
 	// Must similarly do cluster update/create requests after resetting
 	if err := cr.doCreateUpdatePatch(patch); err != nil {
-		klog.ErrorS(err, "could not patch cluster to old commit state (create/update phase)")
-		return err
+		return fmt.Errorf("could not patch cluster to old commit state (create/update phase): %w", err)
 	}
 
 	// Finally commit changes to repo after cluster updates
@@ -107,11 +96,10 @@ func (cr *CustomRepo) RollbackRepo(targetCommit *object.Commit) error {
 	email := "system@audit.antrea.io"
 	message := "Rollback to commit " + targetCommit.Hash.String()
 	if err := cr.AddAndCommit(username, email, message); err != nil {
-		klog.ErrorS(err, "error while committing rollback")
-		return err
+		return fmt.Errorf("error while committing rollback: %w", err)
 	}
 	cr.RollbackMode = false
-	klog.V(2).Infof("Rollback successful", "targetCommit", targetCommit.Hash.String())
+	klog.V(2).InfoS("Rollback successful", "targetCommit", targetCommit.Hash.String())
 	return nil
 }
 
@@ -121,8 +109,7 @@ func resetWorktree(w *git.Worktree, hash plumbing.Hash, mode git.ResetMode) erro
 		Mode:   mode,
 	}
 	if err := w.Reset(options); err != nil {
-		klog.ErrorS(err, "unable to reset worktree")
-		return err
+		return fmt.Errorf("unable to reset worktree")
 	}
 	return nil
 }
@@ -134,15 +121,12 @@ func (cr *CustomRepo) doDeletePatch(patch *object.Patch) error {
 			path := filepath.Join(cr.Dir, fromFile.Path())
 			resource, err := cr.getResourceByPath(path)
 			if err != nil {
-				klog.ErrorS(err, "unable to read resource", "path", path)
-				return err
+				return fmt.Errorf("unable to read resource at path %s: %w", path, err)
 			}
 			if err := cr.K8s.DeleteResource(resource); err != nil {
-				klog.ErrorS(err, "unable to delete resource",
-					"resourceName", resource.GetName())
-				return err
+				return fmt.Errorf("unable to delete resource %s: %w", resource.GetName(), err)
 			}
-			klog.V(2).Infof("(Rollback) Deleted file", "path", path)
+			klog.V(2).InfoS("(Rollback) Deleted file", "path", path)
 		}
 	}
 	return nil
@@ -155,15 +139,12 @@ func (cr *CustomRepo) doCreateUpdatePatch(patch *object.Patch) error {
 			path := filepath.Join(cr.Dir, toFile.Path())
 			resource, err := cr.getResourceByPath(path)
 			if err != nil {
-				klog.ErrorS(err, "unable to read resource", "path", path)
-				return err
+				return fmt.Errorf("unable to read resource at path %s: %w", path, err)
 			}
 			if err := cr.K8s.CreateOrUpdateResource(resource); err != nil {
-				klog.ErrorS(err, "unable to create/update resource",
-					"resourceName", resource.GetName())
-				return err
+				return fmt.Errorf("unable to create/update resource %s: %w", resource.GetName(), err)
 			}
-			klog.V(2).Infof("(Rollback) Created/Updated file", "path", path)
+			klog.V(2).InfoS("(Rollback) Created/Updated file", "path", path)
 		}
 	}
 	return nil
@@ -173,8 +154,7 @@ func (cr *CustomRepo) getResourceByPath(path string) (*unstructured.Unstructured
 	resource := &unstructured.Unstructured{}
 	gvk := schema.GroupVersionKind{}
 	if err := cr.readResource(resource, path); err != nil {
-		klog.ErrorS(err, "unable to read resource")
-		return nil, err
+		return nil, fmt.Errorf("unable to read resource: %w", err)
 	}
 	apiVersion := resource.GetAPIVersion()
 	kind := resource.GetKind()
@@ -201,19 +181,16 @@ func (cr *CustomRepo) readResource(resource *unstructured.Unstructured, path str
 		y = make([]byte, fstat.Size())
 		f, err := cr.Fs.Open(path)
 		if err != nil {
-			klog.ErrorS(err, "error opening file")
-			return err
+			return fmt.Errorf("error opening file")
 		}
 		f.Read(y)
 	}
 	j, err := yaml.YAMLToJSON(y)
 	if err != nil {
-		klog.ErrorS(err, "error converting from YAML to JSON")
-		return err
+		return fmt.Errorf("error converting from YAML to JSON")
 	}
 	if err := json.Unmarshal(j, &resource.Object); err != nil {
-		klog.ErrorS(err, "error while unmarshalling from file")
-		return err
+		return fmt.Errorf("error while unmarshalling from file")
 	}
 	return nil
 }
