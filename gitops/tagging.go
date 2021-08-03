@@ -26,6 +26,7 @@ func (cr *CustomRepo) RemoveTag(tag string) error {
 	if err := cr.Repo.DeleteTag(tag); err != nil {
 		return fmt.Errorf("unable to delete tag")
 	}
+	klog.V(2).InfoS("Tag deleted", "tagName", tag)
 	return nil
 }
 
