@@ -53,6 +53,7 @@ func events(w http.ResponseWriter, r *http.Request, cr *gitops.CustomRepo) {
 	if err != nil {
 		klog.ErrorS(err, "unable to read audit body")
 		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
 	klog.V(3).Infof("Audit received: %s", string(body))
 	if err := cr.HandleEventList(body); err != nil {
@@ -63,6 +64,7 @@ func events(w http.ResponseWriter, r *http.Request, cr *gitops.CustomRepo) {
 			klog.ErrorS(err, "unable to process audit event list")
 			w.WriteHeader(http.StatusInternalServerError)
 		}
+		return
 	}
 }
 
@@ -71,11 +73,13 @@ func changes(w http.ResponseWriter, r *http.Request, cr *gitops.CustomRepo) {
 	if r.Method != "GET" {
 		klog.Errorf("get command does not accept non-GET request")
 		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		klog.ErrorS(err, "unable to read audit body")
 		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
 	klog.V(3).Infof("Filters received: %s", string(body))
 
@@ -109,6 +113,7 @@ func changes(w http.ResponseWriter, r *http.Request, cr *gitops.CustomRepo) {
 	if err != nil {
 		klog.ErrorS(err, "unable to process audit event list")
 		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
 
 	var changes []Change
@@ -123,11 +128,13 @@ func changes(w http.ResponseWriter, r *http.Request, cr *gitops.CustomRepo) {
 	if err != nil {
 		klog.ErrorS(err, "unable to marshal list of changes")
 		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 	_, err = w.Write(jsonstring)
 	if err != nil {
 		klog.ErrorS(err, "unable to write json to response writer")
 		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 }
 
@@ -136,16 +143,19 @@ func rollback(w http.ResponseWriter, r *http.Request, cr *gitops.CustomRepo) {
 	if r.Method != "POST" {
 		klog.Errorf("rollback does not accept non-POST request")
 		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		klog.ErrorS(err, "unable to read audit body")
 		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
 	rollbackRequest := rollbackRequest{}
 	if err := json.Unmarshal(body, &rollbackRequest); err != nil {
 		klog.ErrorS(err, "unable to marshal request body")
 		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
 	var commit *object.Commit
 	if rollbackRequest.Tag != "" {
@@ -156,10 +166,12 @@ func rollback(w http.ResponseWriter, r *http.Request, cr *gitops.CustomRepo) {
 	if err != nil {
 		klog.ErrorS(err, "unable to convert user input into commit object")
 		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 	if err := cr.RollbackRepo(commit); err != nil {
 		klog.ErrorS(err, "failed to rollback repo")
 		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 }
 
@@ -168,16 +180,19 @@ func tag(w http.ResponseWriter, r *http.Request, cr *gitops.CustomRepo) {
 	if r.Method != "POST" {
 		klog.Errorf("tag does not accept non-POST request")
 		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		klog.ErrorS(err, "unable to read audit body")
 		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
 	tagRequest := tagRequest{}
 	if err := json.Unmarshal(body, &tagRequest); err != nil {
 		klog.ErrorS(err, "unable to marshal request body")
 		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
 	if tagRequest.Type == TagCreate {
 		signature := object.Signature{
@@ -188,15 +203,18 @@ func tag(w http.ResponseWriter, r *http.Request, cr *gitops.CustomRepo) {
 		if err := cr.TagCommit(tagRequest.Sha, tagRequest.Tag, &signature); err != nil {
 			klog.ErrorS(err, "failed to tag commit")
 			w.WriteHeader(http.StatusInternalServerError)
+			return
 		}
 	} else if tagRequest.Type == TagDelete {
 		if err := cr.RemoveTag(tagRequest.Tag); err != nil {
 			klog.ErrorS(err, "failed to delete tag")
 			w.WriteHeader(http.StatusInternalServerError)
+			return
 		}
 	} else {
 		klog.ErrorS(err, "unknown tag request type found")
 		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
 }
 
