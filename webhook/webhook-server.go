@@ -8,8 +8,8 @@ import (
 
 	"antrea-audit/gitops"
 
+	"github.com/go-git/go-git/v5/plumbing/object"
 	"k8s.io/klog/v2"
-	//"github.com/go-git/go-git/v5/plumbing/object"
 )
 
 type Change struct {
@@ -19,23 +19,32 @@ type Change struct {
 }
 
 type Filters struct {
-	Author   string    `json:"author"`
-	Since    time.Time `json:"since"`
-	Until    time.Time `json:"until"`
-	Resource string    `json:"resource"`
-    Namespace string `json:"namespace"`
-    Name string `json:"name"`
+	Author    string    `json:"author"`
+	Since     time.Time `json:"since"`
+	Until     time.Time `json:"until"`
+	Resource  string    `json:"resource"`
+	Namespace string    `json:"namespace"`
+	Name      string    `json:"name"`
 }
 
 type rollbackRequest struct {
-	Tag string
-	//TargetCommit *object.Commit `json:"commit"`
+	Tag string `json:"tag,omitempty"`
+	Sha string `json:"sha,omitempty"`
 }
 
+type TagRequestType string
+
+const (
+	TagCreate TagRequestType = "create"
+	TagDelete TagRequestType = "delete"
+)
+
 type tagRequest struct {
-	Tag string
-	Sha string
-	//Signature *object.Signature
+	Type   TagRequestType `json:"type,omitempty"`
+	Tag    string         `json:"tag,omitempty"`
+	Sha    string         `json:"sha,omitempty"`
+	Author string         `json:"author,omitempty"`
+	Email  string         `json:"email,omitempty"`
 }
 
 func events(w http.ResponseWriter, r *http.Request, cr *gitops.CustomRepo) {
@@ -59,6 +68,10 @@ func events(w http.ResponseWriter, r *http.Request, cr *gitops.CustomRepo) {
 
 func changes(w http.ResponseWriter, r *http.Request, cr *gitops.CustomRepo) {
 	defer r.Body.Close()
+	if r.Method != "GET" {
+		klog.Errorf("get command does not accept non-GET request")
+		w.WriteHeader(http.StatusBadRequest)
+	}
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		klog.ErrorS(err, "unable to read audit body")
@@ -66,32 +79,32 @@ func changes(w http.ResponseWriter, r *http.Request, cr *gitops.CustomRepo) {
 	}
 	klog.V(3).Infof("Filters received: %s", string(body))
 
-    filts := r.URL.Query()
-    layout := "2006-01-02T15:04:05.000Z"
-    author := ""
-    if len(filts["author"]) > 0 {
-        author = filts["author"][0]
-    }
-    since := time.Time{}
-    if len(filts["since"]) > 0 {
-        since, _ = time.Parse(layout, filts["since"][0])
-    }
-    until := time.Time{}
-    if len(filts["until"]) > 0 {
-        until, _ = time.Parse(layout, filts["until"][0])
-    }
-    resource := ""
-    if len(filts["resource"]) > 0 {
-        resource = filts["resource"][0]
-    }
-    namespace := ""
-    if len(filts["namespace"]) > 0 {
-        namespace = filts["namespace"][0]
-    }
-    name := ""
-    if len(filts["name"]) > 0 {
-        name = filts["name"][0]
-    }
+	filts := r.URL.Query()
+	layout := "2006-01-02T15:04:05.000Z"
+	author := ""
+	if len(filts["author"]) > 0 {
+		author = filts["author"][0]
+	}
+	since := time.Time{}
+	if len(filts["since"]) > 0 {
+		since, _ = time.Parse(layout, filts["since"][0])
+	}
+	until := time.Time{}
+	if len(filts["until"]) > 0 {
+		until, _ = time.Parse(layout, filts["until"][0])
+	}
+	resource := ""
+	if len(filts["resource"]) > 0 {
+		resource = filts["resource"][0]
+	}
+	namespace := ""
+	if len(filts["namespace"]) > 0 {
+		namespace = filts["namespace"][0]
+	}
+	name := ""
+	if len(filts["name"]) > 0 {
+		name = filts["name"][0]
+	}
 	commits, err := cr.FilterCommits(&author, &since, &until, &resource, &namespace, &name)
 	if err != nil {
 		klog.ErrorS(err, "unable to process audit event list")
@@ -120,6 +133,10 @@ func changes(w http.ResponseWriter, r *http.Request, cr *gitops.CustomRepo) {
 
 func rollback(w http.ResponseWriter, r *http.Request, cr *gitops.CustomRepo) {
 	defer r.Body.Close()
+	if r.Method != "POST" {
+		klog.Errorf("rollback does not accept non-POST request")
+		w.WriteHeader(http.StatusBadRequest)
+	}
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		klog.ErrorS(err, "unable to read audit body")
@@ -130,15 +147,28 @@ func rollback(w http.ResponseWriter, r *http.Request, cr *gitops.CustomRepo) {
 		klog.ErrorS(err, "unable to marshal request body")
 		w.WriteHeader(http.StatusBadRequest)
 	}
-	// commit, _ := cr.TagToCommit(rollbackRequest.Tag)
-	// if err := cr.RollbackRepo(commit); err != nil {
-	// 	klog.ErrorS(err, "failed to rollback repo")
-	// 	w.WriteHeader(http.StatusInternalServerError)
-	// }
+	var commit *object.Commit
+	if rollbackRequest.Tag != "" {
+		commit, err = cr.TagToCommit(rollbackRequest.Tag)
+	} else if rollbackRequest.Sha != "" {
+		commit, err = cr.HashToCommit(rollbackRequest.Sha)
+	}
+	if err != nil {
+		klog.ErrorS(err, "unable to convert user input into commit object")
+		w.WriteHeader(http.StatusInternalServerError)
+	}
+	if err := cr.RollbackRepo(commit); err != nil {
+		klog.ErrorS(err, "failed to rollback repo")
+		w.WriteHeader(http.StatusInternalServerError)
+	}
 }
 
 func tag(w http.ResponseWriter, r *http.Request, cr *gitops.CustomRepo) {
 	defer r.Body.Close()
+	if r.Method != "POST" {
+		klog.Errorf("tag does not accept non-POST request")
+		w.WriteHeader(http.StatusBadRequest)
+	}
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		klog.ErrorS(err, "unable to read audit body")
@@ -149,10 +179,25 @@ func tag(w http.ResponseWriter, r *http.Request, cr *gitops.CustomRepo) {
 		klog.ErrorS(err, "unable to marshal request body")
 		w.WriteHeader(http.StatusBadRequest)
 	}
-	// if err := cr.TagCommit(tagRequest.Sha, tagRequest.Tag, tagRequest.Signature); err != nil {
-	// 	klog.ErrorS(err, "failed to tag commit")
-	// 	w.WriteHeader(http.StatusInternalServerError)
-	// }
+	if tagRequest.Type == TagCreate {
+		signature := object.Signature{
+			Name:  tagRequest.Author,
+			Email: tagRequest.Email,
+			When:  time.Now(),
+		}
+		if err := cr.TagCommit(tagRequest.Sha, tagRequest.Tag, &signature); err != nil {
+			klog.ErrorS(err, "failed to tag commit")
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+	} else if tagRequest.Type == TagDelete {
+		if err := cr.RemoveTag(tagRequest.Tag); err != nil {
+			klog.ErrorS(err, "failed to delete tag")
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+	} else {
+		klog.ErrorS(err, "unknown tag request type found")
+		w.WriteHeader(http.StatusBadRequest)
+	}
 }
 
 func ReceiveEvents(port string, cr *gitops.CustomRepo) error {
