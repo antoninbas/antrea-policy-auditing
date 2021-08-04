@@ -33,7 +33,7 @@ var (
 	allowAction = crdv1alpha1.RuleActionAllow
 	Np1         = test_resource{
 		inputResource: &networkingv1.NetworkPolicy{
-			TypeMeta: metav1.TypeMeta{Kind: "NetworkPolicy", APIVersion: "networking.k8s.io/v1"},
+			TypeMeta:   metav1.TypeMeta{Kind: "NetworkPolicy", APIVersion: "networking.k8s.io/v1"},
 			ObjectMeta: metav1.ObjectMeta{Namespace: "nsA", Name: "npA", UID: "uidA"},
 			Spec: networkingv1.NetworkPolicySpec{
 				PodSelector: metav1.LabelSelector{},
@@ -57,7 +57,7 @@ spec:
 	}
 	Np2 = test_resource{
 		inputResource: &networkingv1.NetworkPolicy{
-			TypeMeta: metav1.TypeMeta{Kind: "NetworkPolicy", APIVersion: "networking.k8s.io/v1"},
+			TypeMeta:   metav1.TypeMeta{Kind: "NetworkPolicy", APIVersion: "networking.k8s.io/v1"},
 			ObjectMeta: metav1.ObjectMeta{Namespace: "nsA", Name: "npB", UID: "uidB"},
 			Spec: networkingv1.NetworkPolicySpec{
 				PodSelector: metav1.LabelSelector{},
@@ -82,7 +82,7 @@ spec:
 	}
 	Np3 = test_resource{
 		inputResource: &networkingv1.NetworkPolicy{
-			TypeMeta: metav1.TypeMeta{Kind: "NetworkPolicy", APIVersion: "networking.k8s.io/v1"},
+			TypeMeta:   metav1.TypeMeta{Kind: "NetworkPolicy", APIVersion: "networking.k8s.io/v1"},
 			ObjectMeta: metav1.ObjectMeta{Namespace: "nsB", Name: "npC", UID: "uidC"},
 			Spec: networkingv1.NetworkPolicySpec{
 				PodSelector: selectorA,
@@ -153,7 +153,7 @@ spec:
 	}
 	Anp1 = test_resource{
 		inputResource: &crdv1alpha1.NetworkPolicy{
-			TypeMeta: metav1.TypeMeta{Kind: "NetworkPolicy", APIVersion: "crd.antrea.io/v1alpha1"},
+			TypeMeta:   metav1.TypeMeta{Kind: "NetworkPolicy", APIVersion: "crd.antrea.io/v1alpha1"},
 			ObjectMeta: metav1.ObjectMeta{Namespace: "nsA", Name: "anpA", UID: "uidC"},
 			Spec: crdv1alpha1.NetworkPolicySpec{
 				AppliedTo: []crdv1alpha1.NetworkPolicyPeer{
@@ -195,7 +195,8 @@ spec:
 			},
 		},
 		expPath: "/antrea-policies/nsA/anpA.yaml",
-		expYaml: `apiVersion: crd.antrea.io/v1alpha1
+		expYaml: 
+`apiVersion: crd.antrea.io/v1alpha1
 kind: NetworkPolicy
 metadata:
   name: anpA
@@ -238,7 +239,7 @@ spec:
 	}
 	Acnp1 = test_resource{
 		inputResource: &crdv1alpha1.ClusterNetworkPolicy{
-			TypeMeta: metav1.TypeMeta{Kind: "ClusterNetworkPolicy", APIVersion: "crd.antrea.io/v1alpha1"},
+			TypeMeta:   metav1.TypeMeta{Kind: "ClusterNetworkPolicy", APIVersion: "crd.antrea.io/v1alpha1"},
 			ObjectMeta: metav1.ObjectMeta{Name: "cnpA", UID: "uidD"},
 			Spec: crdv1alpha1.ClusterNetworkPolicySpec{
 				AppliedTo: []crdv1alpha1.NetworkPolicyPeer{
@@ -280,7 +281,8 @@ spec:
 			},
 		},
 		expPath: "/antrea-cluster-policies/cnpA.yaml",
-		expYaml: `apiVersion: crd.antrea.io/v1alpha1
+		expYaml: 
+`apiVersion: crd.antrea.io/v1alpha1
 kind: ClusterNetworkPolicy
 metadata:
   name: cnpA
@@ -346,27 +348,27 @@ spec:
 
 func TestSetupRepo(t *testing.T) {
 	tests := []struct {
-		name              string
+		name           string
 		inputResources []test_resource
 	}{
 		{
-			name:              "empty-test",
+			name:           "empty-test",
 			inputResources: []test_resource{},
 		},
 		{
-			name:              "basic-test",
+			name:           "basic-test",
 			inputResources: []test_resource{Np1, Np2, Np3, Anp1, Acnp1},
 		},
 		{
-			name:              "empty-K8s-test",
+			name:           "empty-K8s-test",
 			inputResources: []test_resource{Anp1, Acnp1},
 		},
 		{
-			name:              "empty-CRDs-test",
+			name:           "empty-CRDs-test",
 			inputResources: []test_resource{Np1, Np2},
 		},
 		{
-			name:              "tiers-test",
+			name:           "tiers-test",
 			inputResources: []test_resource{Np1, Np2, Anp1, Tier1},
 		},
 	}

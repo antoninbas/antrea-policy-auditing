@@ -10,11 +10,11 @@ import (
 	"antrea-audit/gitops"
 
 	crdv1alpha1 "antrea.io/antrea/pkg/apis/crd/v1alpha1"
+	billy "github.com/go-git/go-billy/v5"
+	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/object"
+	memory "github.com/go-git/go-git/v5/storage/memory"
 	"github.com/stretchr/testify/assert"
-    "github.com/go-git/go-git/v5"
-    memory "github.com/go-git/go-git/v5/storage/memory"
-    billy "github.com/go-git/go-billy/v5"
 
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,8 +24,8 @@ import (
 
 var (
 	directory = ""
-	np1 = &networkingv1.NetworkPolicy{
-		TypeMeta: metav1.TypeMeta{Kind: "NetworkPolicy", APIVersion: "networking.k8s.io/v1"},
+	np1       = &networkingv1.NetworkPolicy{
+		TypeMeta:   metav1.TypeMeta{Kind: "NetworkPolicy", APIVersion: "networking.k8s.io/v1"},
 		ObjectMeta: metav1.ObjectMeta{Namespace: "nsA", Name: "npA", UID: "uidA"},
 		Spec: networkingv1.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{},
@@ -34,7 +34,7 @@ var (
 		},
 	}
 	np2 = &networkingv1.NetworkPolicy{
-		TypeMeta: metav1.TypeMeta{Kind: "NetworkPolicy", APIVersion: "networking.k8s.io/v1"},
+		TypeMeta:   metav1.TypeMeta{Kind: "NetworkPolicy", APIVersion: "networking.k8s.io/v1"},
 		ObjectMeta: metav1.ObjectMeta{Namespace: "nsA", Name: "npB", UID: "uidB"},
 		Spec: networkingv1.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{},
@@ -43,7 +43,7 @@ var (
 		},
 	}
 	anp1 = &crdv1alpha1.NetworkPolicy{
-		TypeMeta: metav1.TypeMeta{Kind: "NetworkPolicy", APIVersion: "crd.antrea.io/v1alpha1"},
+		TypeMeta:   metav1.TypeMeta{Kind: "NetworkPolicy", APIVersion: "crd.antrea.io/v1alpha1"},
 		ObjectMeta: metav1.ObjectMeta{Namespace: "nsA", Name: "anpA", UID: "uidC"},
 		Spec: crdv1alpha1.NetworkPolicySpec{
 			AppliedTo: []crdv1alpha1.NetworkPolicyPeer{
@@ -92,22 +92,27 @@ func TestHandleEventList(t *testing.T) {
 		Client: fakeClient,
 	}
 
-	jsonStr, err := ioutil.ReadFile("./files/audit-log.txt")
-	if err != nil {
-		fmt.Println(err)
-		t.Errorf("could not read audit-log file")
-	}
+	jsonstring, err := ioutil.ReadFile("./files/correct-audit-log.txt")
+	assert.NoError(t, err, "unable to read mock audit log")
 
-	cr, err := gitops.SetupRepo(k8s, gitops.StorageModeInMemory, directory)
-	if err != nil {
-		fmt.Println(err)
-		t.Errorf("could not set up repo")
-	}
+	cr, err := gitops.SetupRepo(k8s, gitops.StorageModeInMemory, dir)
+	assert.NoError(t, err, "could not set up repo")
 
-	err = cr.HandleEventList(jsonStr)
-	if err != nil {
-		fmt.Println(err)
-		t.Errorf("could not handle audit event list")
+	err = cr.HandleEventList(jsonstring)
+	assert.NoError(t, err, "could not handle correct audit event list")
+
+	cr.RollbackMode = true
+	err = cr.HandleEventList(jsonstring)
+	cr.RollbackMode = false
+	assert.EqualError(t, err, "audit skipped - rollback in progress")
+
+	for i := 1; i < 4; i++ {
+		fmt.Println(i)
+		filename := fmt.Sprintf("%s%d%s", "files/incorrect-audit-log-", i, ".txt")
+		jsonstring, err := ioutil.ReadFile(filename)
+		assert.NoError(t, err, "unable to read audit log")
+		err = cr.HandleEventList(jsonstring)
+		assert.Error(t, err, "should have returned error on bad audit log")
 	}
 }
 
@@ -152,7 +157,7 @@ func TestTagging(t *testing.T) {
 	}
 
 	// Attempt to add tag with the same name
-	if err := cr.TagCommit(h.Hash().String(), "test-tag", testSig); err != nil {
+	if err := cr.TagCommit(h.Hash().String(), "test-tag", testSig); err.Error() != "unable to create tag: tag already exists" {
 		t.Errorf("Error (TestTagging): unable to handle duplicate tag creation")
 	}
 	tags, _ := cr.Repo.TagObjects()
@@ -218,14 +223,12 @@ func TestRollback(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error (TestRollback): unable to convert to json")
 	}
-	fmt.Println(string(j))
 	if err := json.Unmarshal(j, &r); err != nil {
 		t.Errorf("Error (TestRollback): unable to unmarshal into unstructured object")
 	}
 	if err := k8s.CreateOrUpdateResource(&r); err != nil {
 		t.Errorf("Error (TestRollback): unable to update resource")
 	}
-	fmt.Println("got here")
 
 	r = unstructured.Unstructured{}
 	r.SetGroupVersionKind(schema.GroupVersionKind{
@@ -270,7 +273,7 @@ func TestRollback(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error (TestRollback): unable to get rollback commit object")
 	}
-	assert.Equal(t, "Rollback to commit " + h.Hash().String(), rollbackCommit.Message,
+	assert.Equal(t, "Rollback to commit "+h.Hash().String(), rollbackCommit.Message,
 		"Error (TestRollback): rollback commit not found, head commit message mismatch")
 
 	// Check cluster state
@@ -297,8 +300,8 @@ func TestRollback(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error (TestRollback): unable to get antrea policy after rollback")
 	}
-	ligma := []int{1,2,3}
-    assert.Equal(t, 1, len(ligma),
+	ligma := []int{1, 2, 3}
+	assert.Equal(t, 1, len(ligma),
 		"Error (TestRollback): unexpected number of antrea policies after rollback")
 }
 
