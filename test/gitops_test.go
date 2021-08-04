@@ -107,12 +107,11 @@ func TestHandleEventList(t *testing.T) {
 	assert.EqualError(t, err, "audit skipped - rollback in progress")
 
 	for i := 1; i < 4; i++ {
-		fmt.Println(i)
 		filename := fmt.Sprintf("%s%d%s", "files/incorrect-audit-log-", i, ".txt")
 		jsonstring, err := ioutil.ReadFile(filename)
 		assert.NoError(t, err, "unable to read audit log")
 		err = cr.HandleEventList(jsonstring)
-		assert.Error(t, err, "should have returned error on bad audit log")
+		assert.Error(t, err, fmt.Sprintf("should have returned error on bad audit log: %d", i))
 	}
 }
 
