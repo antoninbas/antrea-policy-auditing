@@ -29,7 +29,7 @@ func (cr *CustomRepo) HandleEventList(jsonstring []byte) error {
 		}
 		if cr.RollbackMode {
 			klog.V(2).Infof("Rollback currently in progress, rejecting audit")
-			return fmt.Errorf("rollback-in-progress")
+			return fmt.Errorf("audit skipped - rollback in progress")
 		}
 		user := event.User.Username
 		email := event.User.Username + "+" + event.User.UID + "@audit.antrea.io"
