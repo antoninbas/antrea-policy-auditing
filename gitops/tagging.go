@@ -14,17 +14,18 @@ func (cr *CustomRepo) TagCommit(commit_sha string, tag string, tagger *object.Si
 	hash := plumbing.NewHash(commit_sha)
 	_, err := cr.Repo.CommitObject(hash)
 	if err != nil {
-		return fmt.Errorf("unable to get commit object")
+		return fmt.Errorf("unable to get commit object: %w", err)
 	}
 	if err = setTag(cr.Repo, hash, tag, tagger); err != nil {
 		return fmt.Errorf("unable to create tag: %w", err)
 	}
+	klog.V(2).InfoS("Tag created", "tagName", tag, "commit", commit_sha)
 	return nil
 }
 
 func (cr *CustomRepo) RemoveTag(tag string) error {
 	if err := cr.Repo.DeleteTag(tag); err != nil {
-		return fmt.Errorf("unable to delete tag")
+		return fmt.Errorf("unable to delete tag: %w", err)
 	}
 	klog.V(2).InfoS("Tag deleted", "tagName", tag)
 	return nil
@@ -39,9 +40,8 @@ func setTag(r *git.Repository, commit_sha plumbing.Hash, tag string, tagger *obj
 		if err.Error() == "tag already exists" {
 			return err
 		} else {
-			return fmt.Errorf("error creating tag")
+			return fmt.Errorf("error creating tag: %w", err)
 		}
 	}
-	klog.V(2).InfoS("Tag created", "tagName", tag)
 	return nil
 }

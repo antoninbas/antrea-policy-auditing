@@ -23,8 +23,7 @@ import (
 )
 
 var (
-	directory = ""
-	np1       = &networkingv1.NetworkPolicy{
+	np1 = &networkingv1.NetworkPolicy{
 		TypeMeta:   metav1.TypeMeta{Kind: "NetworkPolicy", APIVersion: "networking.k8s.io/v1"},
 		ObjectMeta: metav1.ObjectMeta{Namespace: "nsA", Name: "npA", UID: "uidA"},
 		Spec: networkingv1.NetworkPolicySpec{
@@ -120,14 +119,10 @@ func TestTagging(t *testing.T) {
 	k8s := &gitops.K8sClient{
 		Client: fakeClient,
 	}
-	cr, err := gitops.SetupRepo(k8s, gitops.StorageModeInMemory, directory)
-	if err != nil {
-		t.Errorf("Error (TestTagging): unable to set up repo")
-	}
+	cr, err := gitops.SetupRepo(k8s, gitops.StorageModeInMemory, dir)
+	assert.NoError(t, err, "unable to set up repo")
 	h, err := cr.Repo.Head()
-	if err != nil {
-		t.Errorf("Error (TestTagging): unable to get repo head ref")
-	}
+	assert.NoError(t, err, "unable to get repo head ref")
 
 	testSig := &object.Signature{
 		Name:  "test",
@@ -135,39 +130,32 @@ func TestTagging(t *testing.T) {
 		When:  time.Now(),
 	}
 	// Attempt to add tag to nonexistent commit
-	if err := cr.TagCommit("bad-hash", "test-tag", testSig); err == nil {
-		t.Errorf("Error (TestTagging): should have returned error on bad commit hash")
-	}
+	err = cr.TagCommit("bad-hash", "test-tag", testSig)
+	assert.Error(t, err, "should have returned error on bad commit hash")
 
 	// Create new tags successfully
-	if err := cr.TagCommit(h.Hash().String(), "test-tag", testSig); err != nil {
-		t.Errorf("Error (TestTagging): unable to create new tag")
-	}
-	if err := cr.TagCommit(h.Hash().String(), "test-tag-2", testSig); err != nil {
-		t.Errorf("Error (TestTagging): unable to create new tag")
-	}
+	err = cr.TagCommit(h.Hash().String(), "test-tag", testSig)
+	assert.NoError(t, err, "unable to create 1st new tag")
+	err = cr.TagCommit(h.Hash().String(), "test-tag-2", testSig)
+	assert.NoError(t, err, "unable to create 2nd new tag")
+
 	_, err = cr.Repo.Tag("test-tag")
-	if err != nil {
-		t.Errorf("Error (TestTagging): could not retrieve created tag")
-	}
+	assert.NoError(t, err, "could not retrieve 1st created tag")
 	_, err = cr.Repo.Tag("test-tag-2")
-	if err != nil {
-		t.Errorf("Error (TestTagging): could not retrieve created tag")
-	}
+	assert.NoError(t, err, "could not retrieve 2nd created tag")
 
 	// Attempt to add tag with the same name
-	if err := cr.TagCommit(h.Hash().String(), "test-tag", testSig); err.Error() != "unable to create tag: tag already exists" {
-		t.Errorf("Error (TestTagging): unable to handle duplicate tag creation")
-	}
+	err = cr.TagCommit(h.Hash().String(), "test-tag", testSig)
+	assert.EqualError(t, err, "unable to create tag: tag already exists")
+
 	tags, _ := cr.Repo.TagObjects()
 	tagCount := 0
-	if err := tags.ForEach(func(tag *object.Tag) error {
+	err = tags.ForEach(func(tag *object.Tag) error {
 		tagCount += 1
 		return nil
-	}); err != nil {
-		t.Errorf("Error (TestTagging): could not iterate through repo tags")
-	}
-	assert.Equal(t, 2, tagCount, "Error (TestTagging): duplicate tag detected, tag count should have been 2")
+	})
+	assert.NoError(t, err, "could not iterate through repo tags")
+	assert.Equal(t, 2, tagCount, "unexpected number of tags, should have 2 tags")
 }
 
 func TestRollback(t *testing.T) {
@@ -175,22 +163,17 @@ func TestRollback(t *testing.T) {
 	k8s := &gitops.K8sClient{
 		Client: fakeClient,
 	}
-	cr, err := gitops.SetupRepo(k8s, gitops.StorageModeInMemory, directory)
-	if err != nil {
-		t.Errorf("Error (TestRollback): unable to set up repo")
-	}
+	cr, err := gitops.SetupRepo(k8s, gitops.StorageModeInMemory, dir)
+	assert.NoError(t, err, "unable to set up repo")
 	h, err := cr.Repo.Head()
-	if err != nil {
-		t.Errorf("Error (TestRollback): unable to get repo head ref")
-	}
+	assert.NoError(t, err, "unable to get repo head ref")
 	testSig := &object.Signature{
 		Name:  "test",
 		Email: "test@antrea.audit.io",
 		When:  time.Now(),
 	}
-	if err := cr.TagCommit(h.Hash().String(), "test-tag", testSig); err != nil {
-		t.Errorf("Error (TestRollback): unable to create new tag")
-	}
+	err = cr.TagCommit(h.Hash().String(), "test-tag", testSig)
+	assert.NoError(t, err, "unable to create new tag")
 
 	// Create, update, and delete a resource
 	r := unstructured.Unstructured{}
@@ -200,15 +183,11 @@ func TestRollback(t *testing.T) {
 		Kind:    "NetworkPolicy",
 	})
 	j, err := json.Marshal(np2)
-	if err != nil {
-		t.Errorf("Error (TestRollback): unable to convert to json")
-	}
-	if err := json.Unmarshal(j, &r); err != nil {
-		t.Errorf("Error (TestRollback): unable to unmarshal into unstructured object")
-	}
-	if err := k8s.CreateOrUpdateResource(&r); err != nil {
-		t.Errorf("Error (TestRollback): unable to create new resource")
-	}
+	assert.NoError(t, err, "unable to convert to json")
+	err = json.Unmarshal(j, &r)
+	assert.NoError(t, err, "unable to unmarshal into unstructured object")
+	err = k8s.CreateOrUpdateResource(&r)
+	assert.NoError(t, err, "unable to create new resource")
 
 	updatedNP := np1
 	updatedNP.ObjectMeta.SetClusterName("new-cluster-name")
@@ -219,15 +198,11 @@ func TestRollback(t *testing.T) {
 		Kind:    "NetworkPolicy",
 	})
 	j, err = json.Marshal(updatedNP)
-	if err != nil {
-		t.Errorf("Error (TestRollback): unable to convert to json")
-	}
-	if err := json.Unmarshal(j, &r); err != nil {
-		t.Errorf("Error (TestRollback): unable to unmarshal into unstructured object")
-	}
-	if err := k8s.CreateOrUpdateResource(&r); err != nil {
-		t.Errorf("Error (TestRollback): unable to update resource")
-	}
+	assert.NoError(t, err, "unable to convert to json")
+	err = json.Unmarshal(j, &r)
+	assert.NoError(t, err, "unable to unmarshal into structured object")
+	err = k8s.CreateOrUpdateResource(&r)
+	assert.NoError(t, err, "unable to update new resource")
 
 	r = unstructured.Unstructured{}
 	r.SetGroupVersionKind(schema.GroupVersionKind{
@@ -236,44 +211,30 @@ func TestRollback(t *testing.T) {
 		Kind:    "NetworkPolicy",
 	})
 	j, err = json.Marshal(anp1)
-	if err != nil {
-		t.Errorf("Error (TestRollback): unable to convert to json")
-	}
-	if err := json.Unmarshal(j, &r); err != nil {
-		t.Errorf("Error (TestRollback): unable to unmarshal into unstructured object")
-	}
-	if err := k8s.DeleteResource(&r); err != nil {
-		t.Errorf("Error (TestRollback): unable to delete resource")
-	}
+	assert.NoError(t, err, "unable to convert to json")
+	err = json.Unmarshal(j, &r)
+	assert.NoError(t, err, "unable to unmarshal into structured object")
+	err = k8s.DeleteResource(&r)
+	assert.NoError(t, err, "unable to delete resource")
 
 	jsonStr, err := ioutil.ReadFile("./files/rollback-log.txt")
-	if err != nil {
-		t.Errorf("could not read rollback-log file")
-	}
-	if err := cr.HandleEventList(jsonStr); err != nil {
-		t.Errorf("could not process audit events from file")
-	}
+	assert.NoError(t, err, "could not read rollback-log file")
+	err = cr.HandleEventList(jsonStr)
+	assert.NoError(t, err, "could not process audit events from file")
 
 	// Attempt rollback
 	commit, err := cr.TagToCommit("test-tag")
-	if err != nil {
-		t.Errorf("Error (TestRollback): could not retrieve commit from tag")
-	}
-	if err := cr.RollbackRepo(commit); err != nil {
-		t.Errorf("Error (TestRollback): rollback failed")
-	}
+	assert.NoError(t, err, "could not retrieve commit from tag")
+	err = cr.RollbackRepo(commit)
+	assert.NoError(t, err, "rollback failed")
 
 	// Check latest commit
 	newH, err := cr.Repo.Head()
-	if err != nil {
-		t.Errorf("Error (TestRollback): unable to get repo head ref")
-	}
+	assert.NoError(t, err, "unable to get repo head ref")
 	rollbackCommit, err := cr.Repo.CommitObject(newH.Hash())
-	if err != nil {
-		t.Errorf("Error (TestRollback): unable to get rollback commit object")
-	}
+	assert.NoError(t, err, "unable to get rollback commit object")
 	assert.Equal(t, "Rollback to commit "+h.Hash().String(), rollbackCommit.Message,
-		"Error (TestRollback): rollback commit not found, head commit message mismatch")
+		"rollback commit not found, head commit message mismatch")
 
 	// Check cluster state
 	res := &unstructured.Unstructured{}
@@ -283,9 +244,7 @@ func TestRollback(t *testing.T) {
 		Kind:    "NetworkPolicy",
 	})
 	np, err := k8s.GetResource(res, "nsA", "npA")
-	if err != nil {
-		t.Errorf("Error (TestRollback): unable to get policy after rollback")
-	}
+	assert.NoError(t, err, "unable to get policy after rollback")
 	assert.Equal(t, "", np.GetClusterName(),
 		"Error (TestRollback): updated field should be empty after rollback")
 
@@ -296,12 +255,7 @@ func TestRollback(t *testing.T) {
 		Kind:    "NetworkPolicy",
 	})
 	_, err = k8s.GetResource(res, "nsA", "anpA")
-	if err != nil {
-		t.Errorf("Error (TestRollback): unable to get antrea policy after rollback")
-	}
-	ligma := []int{1, 2, 3}
-	assert.Equal(t, 1, len(ligma),
-		"Error (TestRollback): unexpected number of antrea policies after rollback")
+	assert.NoError(t, err, "unable to get antrea policy after rollback")
 }
 
 func SetupMemRepo(storer *memory.Storage, fs billy.Filesystem) error {

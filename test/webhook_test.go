@@ -4,7 +4,7 @@ import (
 	"antrea-audit/gitops"
 	"antrea-audit/webhook"
 	"fmt"
-    "io/ioutil"
+	"io/ioutil"
 	"testing"
 )
 

@@ -21,15 +21,15 @@ func (cr *CustomRepo) TagToCommit(tag string) (*object.Commit, error) {
 	defer cr.Mutex.Unlock()
 	ref, err := cr.Repo.Tag(tag)
 	if err != nil {
-		return nil, fmt.Errorf("could not retrieve tag reference")
+		return nil, fmt.Errorf("could not retrieve tag reference: %w", err)
 	}
 	obj, err := cr.Repo.TagObject(ref.Hash())
 	if err != nil {
-		return nil, fmt.Errorf("could not retrieve tag object")
+		return nil, fmt.Errorf("could not retrieve tag object: %w", err)
 	}
 	commit, err := obj.Commit()
 	if err != nil {
-		return nil, fmt.Errorf("could not get commit from tag object")
+		return nil, fmt.Errorf("could not get commit from tag object: %w", err)
 	}
 	return commit, nil
 }
@@ -40,7 +40,7 @@ func (cr *CustomRepo) HashToCommit(commitSha string) (*object.Commit, error) {
 	hash := plumbing.NewHash(commitSha)
 	commit, err := cr.Repo.CommitObject(hash)
 	if err != nil {
-		return nil, fmt.Errorf("could not get commit from hash")
+		return nil, fmt.Errorf("could not get commit from hash: %w", err)
 	}
 	return commit, nil
 }
@@ -56,19 +56,19 @@ func (cr *CustomRepo) RollbackRepo(targetCommit *object.Commit) error {
 	// Get patch between head and target commit
 	w, err := cr.Repo.Worktree()
 	if err != nil {
-		return fmt.Errorf("unable to get git worktree from repository")
+		return fmt.Errorf("unable to get git worktree from repository: %w", err)
 	}
 	h, err := cr.Repo.Head()
 	if err != nil {
-		return fmt.Errorf("unable to get repo head")
+		return fmt.Errorf("unable to get repo head: %w", err)
 	}
 	headCommit, err := cr.Repo.CommitObject(h.Hash())
 	if err != nil {
-		return fmt.Errorf("unable to get head commit")
+		return fmt.Errorf("unable to get head commit: %w", err)
 	}
 	patch, err := headCommit.Patch(targetCommit)
 	if err != nil {
-		return fmt.Errorf("unable to get patch between commits")
+		return fmt.Errorf("unable to get patch between commits: %w", err)
 	}
 
 	// Must do cluster delete requests before resetting in order to be able to read metadata from files
@@ -109,7 +109,7 @@ func resetWorktree(w *git.Worktree, hash plumbing.Hash, mode git.ResetMode) erro
 		Mode:   mode,
 	}
 	if err := w.Reset(options); err != nil {
-		return fmt.Errorf("unable to reset worktree")
+		return fmt.Errorf("unable to reset worktree: %w", err)
 	}
 	return nil
 }
@@ -181,16 +181,16 @@ func (cr *CustomRepo) readResource(resource *unstructured.Unstructured, path str
 		y = make([]byte, fstat.Size())
 		f, err := cr.Fs.Open(path)
 		if err != nil {
-			return fmt.Errorf("error opening file")
+			return fmt.Errorf("error opening file: %w", err)
 		}
 		f.Read(y)
 	}
 	j, err := yaml.YAMLToJSON(y)
 	if err != nil {
-		return fmt.Errorf("error converting from YAML to JSON")
+		return fmt.Errorf("error converting from YAML to JSON: %w", err)
 	}
 	if err := json.Unmarshal(j, &resource.Object); err != nil {
-		return fmt.Errorf("error while unmarshalling from file")
+		return fmt.Errorf("error while unmarshalling from file: %w", err)
 	}
 	return nil
 }

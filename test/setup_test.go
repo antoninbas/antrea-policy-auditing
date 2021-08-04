@@ -1,10 +1,8 @@
 package test
 
 import (
-	"fmt"
-	"testing"
-
 	"antrea-audit/gitops"
+	"testing"
 
 	crdv1alpha1 "antrea.io/antrea/pkg/apis/crd/v1alpha1"
 	"github.com/stretchr/testify/assert"
@@ -42,7 +40,8 @@ var (
 			},
 		},
 		expPath: "/k8s-policies/nsA/npA.yaml",
-		expYaml: `apiVersion: networking.k8s.io/v1
+		expYaml: 
+`apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: npA
@@ -391,19 +390,14 @@ func TestSetupRepo(t *testing.T) {
 
 func runSetupTest(t *testing.T, k8s *gitops.K8sClient, expPaths []string, expYamls []string) {
 	cr, err := gitops.SetupRepo(k8s, gitops.StorageModeInMemory, dir)
-	if err != nil {
-		t.Errorf("Error (TestSetupRepo): unable to set up repo")
-	}
+	assert.NoError(t, err, "unable to set up repo")
 	for i, path := range expPaths {
 		file, err := cr.Fs.Open(path)
-		if err != nil {
-			fmt.Println(path)
-			t.Errorf("Error (TestSetupRepo): unable to open file")
-		}
+		assert.NoError(t, err, "unable to open file")
 		fstat, _ := cr.Fs.Stat(path)
 		var buffer = make([]byte, fstat.Size())
 		file.Read(buffer)
-		assert.Equal(t, string(buffer), expYamls[i], "Error (TestSetupRepo): file does not match expected YAML")
+		assert.Equal(t, string(buffer), expYamls[i], "read file does not match expected YAML")
 	}
 }
 
@@ -413,13 +407,9 @@ func TestRepoDuplicate(t *testing.T) {
 		Client: fakeClient,
 	}
 	_, err := gitops.SetupRepo(k8s, gitops.StorageModeInMemory, dir)
-	if err != nil {
-		t.Errorf("Error (TestRepoDuplicate): unable to set up repo for the first time")
-	}
+	assert.NoError(t, err, "unable to set up repo (1st time)")
 	_, err = gitops.SetupRepo(k8s, gitops.StorageModeInMemory, dir)
-	if err != nil {
-		t.Errorf("Error (TestRepoDuplicate): unable to set up repo for the second time")
-	}
+	assert.NoError(t, err, "unable to handle duplicate repo initialization")
 }
 
 func NewClient(objects ...runtime.Object) client.WithWatch {
