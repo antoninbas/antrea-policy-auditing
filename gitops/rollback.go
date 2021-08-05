@@ -49,7 +49,7 @@ func (cr *CustomRepo) RollbackRepo(targetCommit *object.Commit) (string, error) 
 	cr.Mutex.Lock()
 	defer cr.Mutex.Unlock()
 
-	klog.V(2).InfoS("Rollback initiated, ignoring all non-rollback generated audits",
+	klog.V(2).InfoS("rollback initiated, ignoring all non-rollback generated audits",
 		"targetCommit", targetCommit.Hash.String())
 	cr.RollbackMode = true
 
@@ -99,7 +99,7 @@ func (cr *CustomRepo) RollbackRepo(targetCommit *object.Commit) (string, error) 
 		return "", fmt.Errorf("error while committing rollback: %w", err)
 	}
 	cr.RollbackMode = false
-	klog.V(2).InfoS("Rollback successful", "targetCommit", targetCommit.Hash.String())
+	klog.V(2).InfoS("rollback successful", "targetCommit", targetCommit.Hash.String())
 	return targetCommit.Hash.String(), nil
 }
 
@@ -126,7 +126,7 @@ func (cr *CustomRepo) doDeletePatch(patch *object.Patch) error {
 			if err := cr.K8s.DeleteResource(resource); err != nil {
 				return fmt.Errorf("unable to delete resource %s: %w", resource.GetName(), err)
 			}
-			klog.V(2).InfoS("(Rollback) Deleted file", "path", path)
+			klog.V(2).InfoS("(rollback) deleted file", "path", path)
 		}
 	}
 	return nil
@@ -144,7 +144,7 @@ func (cr *CustomRepo) doCreateUpdatePatch(patch *object.Patch) error {
 			if err := cr.K8s.CreateOrUpdateResource(resource); err != nil {
 				return fmt.Errorf("unable to create/update resource %s: %w", resource.GetName(), err)
 			}
-			klog.V(2).InfoS("(Rollback) Created/Updated file", "path", path)
+			klog.V(2).InfoS("(rollback) created/updated file", "path", path)
 		}
 	}
 	return nil

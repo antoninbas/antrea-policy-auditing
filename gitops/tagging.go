@@ -19,7 +19,7 @@ func (cr *CustomRepo) TagCommit(commit_sha string, tag string, tagger *object.Si
 	if err = setTag(cr.Repo, hash, tag, tagger); err != nil {
 		return "", fmt.Errorf("unable to create tag: %w", err)
 	}
-	klog.V(2).InfoS("Tag created", "tagName", tag, "commit", commit_sha)
+	klog.V(2).InfoS("tag created", "tagName", tag, "commit", commit_sha)
 	return commit_sha, nil
 }
 
@@ -27,7 +27,7 @@ func (cr *CustomRepo) RemoveTag(tag string) (string, error) {
 	if err := cr.Repo.DeleteTag(tag); err != nil {
 		return "", fmt.Errorf("unable to delete tag: %w", err)
 	}
-	klog.V(2).InfoS("Tag deleted", "tagName", tag)
+	klog.V(2).InfoS("tag deleted", "tagName", tag)
 	return tag, nil
 }
 
