@@ -138,6 +138,53 @@ func changes(w http.ResponseWriter, r *http.Request, cr *gitops.CustomRepo) {
 	}
 }
 
+func tag(w http.ResponseWriter, r *http.Request, cr *gitops.CustomRepo) {
+	defer r.Body.Close()
+	if r.Method != "POST" {
+		klog.Errorf("tag does not accept non-POST request")
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		klog.ErrorS(err, "unable to read audit body")
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	tagRequest := tagRequest{}
+	if err := json.Unmarshal(body, &tagRequest); err != nil {
+		klog.ErrorS(err, "unable to marshal request body")
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	if tagRequest.Type == TagCreate {
+		signature := object.Signature{
+			Name:  tagRequest.Author,
+			Email: tagRequest.Email,
+			When:  time.Now(),
+		}
+		sha, err := cr.TagCommit(tagRequest.Sha, tagRequest.Tag, &signature)
+		if err != nil {
+			klog.ErrorS(err, "failed to tag commit")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.Write([]byte("Commit " + sha + " tagged"))
+	} else if tagRequest.Type == TagDelete {
+		tag, err := cr.RemoveTag(tagRequest.Tag)
+		if err != nil {
+			klog.ErrorS(err, "failed to delete tag")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.Write([]byte("Tag " + tag + " deleted"))
+	} else {
+		klog.ErrorS(err, "unknown tag request type found")
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+}
+
 func rollback(w http.ResponseWriter, r *http.Request, cr *gitops.CustomRepo) {
 	defer r.Body.Close()
 	if r.Method != "POST" {
@@ -168,54 +215,14 @@ func rollback(w http.ResponseWriter, r *http.Request, cr *gitops.CustomRepo) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	if err := cr.RollbackRepo(commit); err != nil {
+
+	sha, err := cr.RollbackRepo(commit)
+	if err != nil {
 		klog.ErrorS(err, "failed to rollback repo")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-}
-
-func tag(w http.ResponseWriter, r *http.Request, cr *gitops.CustomRepo) {
-	defer r.Body.Close()
-	if r.Method != "POST" {
-		klog.Errorf("tag does not accept non-POST request")
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	body, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		klog.ErrorS(err, "unable to read audit body")
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	tagRequest := tagRequest{}
-	if err := json.Unmarshal(body, &tagRequest); err != nil {
-		klog.ErrorS(err, "unable to marshal request body")
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	if tagRequest.Type == TagCreate {
-		signature := object.Signature{
-			Name:  tagRequest.Author,
-			Email: tagRequest.Email,
-			When:  time.Now(),
-		}
-		if err := cr.TagCommit(tagRequest.Sha, tagRequest.Tag, &signature); err != nil {
-			klog.ErrorS(err, "failed to tag commit")
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-	} else if tagRequest.Type == TagDelete {
-		if err := cr.RemoveTag(tagRequest.Tag); err != nil {
-			klog.ErrorS(err, "failed to delete tag")
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-	} else {
-		klog.ErrorS(err, "unknown tag request type found")
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
+	w.Write([]byte("Rollback to commit " + sha + " successful"))
 }
 
 func ReceiveEvents(port string, cr *gitops.CustomRepo) error {

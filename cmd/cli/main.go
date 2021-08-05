@@ -10,6 +10,8 @@ import (
 	"path"
 	"strings"
 
+	"antrea-audit/types"
+
 	"github.com/spf13/cobra"
 )
 
@@ -26,31 +28,10 @@ var commandName = path.Base(os.Args[0])
 
 var rootCmd = &cobra.Command{
 	Use:   commandName,
-	Short: commandName + " is the command line tool for filtering commits",
-	Long:  commandName + " is the command line tool for filtering commmits that supports post and get functionality",
+	Short: commandName + " is the command line tool for managing the auditing resource repository",
 }
 
 const port = "8080"
-
-type TagRequestType string
-
-const (
-	TagCreate TagRequestType = "create"
-	TagDelete TagRequestType = "delete"
-)
-
-type tagRequest struct {
-	Type   TagRequestType `json:"type,omitempty"`
-	Tag    string         `json:"tag,omitempty"`
-	Sha    string         `json:"sha,omitempty"`
-	Author string         `json:"author,omitempty"`
-	Email  string         `json:"email,omitempty"`
-}
-
-type rollbackRequest struct {
-	Tag string `json:"tag,omitempty"`
-	Sha string `json:"sha,omitempty"`
-}
 
 func getURL() string {
 	flags := []string{author, since, until, resource, namespace, name}
@@ -108,18 +89,18 @@ var tagCmd = &cobra.Command{
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		url := "http://localhost:" + port + "/tag"
-		var request tagRequest
+		var request types.TagRequest
 		if args[0] == "create" {
-			request = tagRequest{
-				Type:   TagCreate,
+			request = types.TagRequest{
+				Type:   types.TagCreate,
 				Tag:    args[1],
 				Sha:    args[2],
 				Author: tagAuthor,
 				Email:  tagEmail,
 			}
 		} else {
-			request = tagRequest{
-				Type: TagDelete,
+			request = types.TagRequest{
+				Type: types.TagDelete,
 				Tag:  args[1],
 			}
 		}
@@ -139,7 +120,10 @@ var tagCmd = &cobra.Command{
 			fmt.Println(err)
 			return
 		}
-		// print success msg
+		if resp.StatusCode == http.StatusBadRequest || resp.StatusCode == http.StatusInternalServerError {
+			fmt.Println("Error encountered while processing tag request")
+			return
+		}
 		fmt.Println(string(body))
 	},
 }
@@ -158,7 +142,7 @@ var rollbackCmd = &cobra.Command{
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		url := "http://localhost:" + port + "/rollback"
-		request := rollbackRequest{
+		request := types.RollbackRequest{
 			Tag: rollbackTag,
 			Sha: rollbackSHA,
 		}
@@ -178,7 +162,10 @@ var rollbackCmd = &cobra.Command{
 			fmt.Println(err)
 			return
 		}
-		// print success msg
+		if resp.StatusCode == http.StatusBadRequest || resp.StatusCode == http.StatusInternalServerError {
+			fmt.Println("Error encountered while processing rollback request")
+			return
+		}
 		fmt.Println(string(body))
 	},
 }
