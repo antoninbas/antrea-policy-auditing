@@ -27,25 +27,11 @@ var rollbackTag, rollbackSHA string
 var commandName = path.Base(os.Args[0])
 
 var rootCmd = &cobra.Command{
-	Use:   commandName,
-	Short: commandName + " is the command line tool for managing the auditing resource repository",
+	Use:  commandName,
+	Long: commandName + " is the command line tool for managing the auditing resource repository",
 }
 
 const port = "8080"
-
-func getURL() string {
-	flags := []string{author, since, until, resource, namespace, name}
-	flagnames := []string{"author=", "since=", "until=", "resource=", "namespace=", "name="}
-	var parts []string
-	for i, flag := range flags {
-		if strings.TrimSpace(flag) != "" {
-			parts = append(parts, flagnames[i]+flag)
-		}
-	}
-	url := "http://localhost:" + port + "/changes?"
-	url += strings.Join(parts, "&")
-	return url
-}
 
 var getCmd = &cobra.Command{
 	Use:   "get",
@@ -87,45 +73,7 @@ var tagCmd = &cobra.Command{
 		}
 		return nil
 	},
-	Run: func(cmd *cobra.Command, args []string) {
-		url := "http://localhost:" + port + "/tag"
-		var request types.TagRequest
-		if args[0] == "create" {
-			request = types.TagRequest{
-				Type:   types.TagCreate,
-				Tag:    args[1],
-				Sha:    args[2],
-				Author: tagAuthor,
-				Email:  tagEmail,
-			}
-		} else {
-			request = types.TagRequest{
-				Type: types.TagDelete,
-				Tag:  args[1],
-			}
-		}
-		j, err := json.Marshal(request)
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-		resp, err := http.Post(url, "application/json", bytes.NewBuffer(j))
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-		defer resp.Body.Close()
-		body, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-		if resp.StatusCode == http.StatusBadRequest || resp.StatusCode == http.StatusInternalServerError {
-			fmt.Println("Error encountered while processing tag request")
-			return
-		}
-		fmt.Println(string(body))
-	},
+	Run: runTag,
 }
 
 var rollbackCmd = &cobra.Command{
@@ -140,34 +88,90 @@ var rollbackCmd = &cobra.Command{
 		}
 		return nil
 	},
-	Run: func(cmd *cobra.Command, args []string) {
-		url := "http://localhost:" + port + "/rollback"
-		request := types.RollbackRequest{
-			Tag: rollbackTag,
-			Sha: rollbackSHA,
+	Run: runRollback,
+}
+
+func getURL() string {
+	flags := []string{author, since, until, resource, namespace, name}
+	flagnames := []string{"author=", "since=", "until=", "resource=", "namespace=", "name="}
+	var parts []string
+	for i, flag := range flags {
+		if strings.TrimSpace(flag) != "" {
+			parts = append(parts, flagnames[i]+flag)
 		}
-		j, err := json.Marshal(request)
-		if err != nil {
-			fmt.Println(err)
-			return
+	}
+	url := "http://localhost:" + port + "/changes?"
+	url += strings.Join(parts, "&")
+	return url
+}
+
+func runTag(cmd *cobra.Command, args []string) {
+	url := "http://localhost:" + port + "/tag"
+	var request types.TagRequest
+	if args[0] == "create" {
+		request = types.TagRequest{
+			Type:   types.TagCreate,
+			Tag:    args[1],
+			Sha:    args[2],
+			Author: tagAuthor,
+			Email:  tagEmail,
 		}
-		resp, err := http.Post(url, "application/json", bytes.NewBuffer(j))
-		if err != nil {
-			fmt.Println(err)
-			return
+	} else {
+		request = types.TagRequest{
+			Type: types.TagDelete,
+			Tag:  args[1],
 		}
-		defer resp.Body.Close()
-		body, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-		if resp.StatusCode == http.StatusBadRequest || resp.StatusCode == http.StatusInternalServerError {
-			fmt.Println("Error encountered while processing rollback request")
-			return
-		}
-		fmt.Println(string(body))
-	},
+	}
+	j, err := json.Marshal(request)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	resp, err := http.Post(url, "application/json", bytes.NewBuffer(j))
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	if resp.StatusCode == http.StatusBadRequest || resp.StatusCode == http.StatusInternalServerError {
+		fmt.Println("Error encountered while processing tag request")
+		return
+	}
+	fmt.Println(string(body))
+}
+
+func runRollback(cmd *cobra.Command, args []string) {
+	url := "http://localhost:" + port + "/rollback"
+	request := types.RollbackRequest{
+		Tag: rollbackTag,
+		Sha: rollbackSHA,
+	}
+	j, err := json.Marshal(request)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	resp, err := http.Post(url, "application/json", bytes.NewBuffer(j))
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	if resp.StatusCode == http.StatusBadRequest || resp.StatusCode == http.StatusInternalServerError {
+		fmt.Println("Error encountered while processing rollback request")
+		return
+	}
+	fmt.Println(string(body))
 }
 
 func init() {
