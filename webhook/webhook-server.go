@@ -57,7 +57,7 @@ func events(w http.ResponseWriter, r *http.Request, cr *gitops.CustomRepo) {
 	}
 	klog.V(3).Infof("Audit received: %s", string(body))
 	if err := cr.HandleEventList(body); err != nil {
-		if err.Error() == "rollback-in-progress" {
+		if err.Error() == "rollback in progress" {
 			klog.ErrorS(err, "audit received during rollback")
 			w.WriteHeader(http.StatusServiceUnavailable)
 		} else {
