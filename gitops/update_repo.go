@@ -2,8 +2,6 @@ package gitops
 
 import (
 	"encoding/json"
-	"io/ioutil"
-	"os"
 	"time"
 
 	"github.com/ghodss/yaml"
@@ -51,26 +49,15 @@ func (cr *CustomRepo) modifyFile(event auditv1.Event) error {
 		klog.ErrorS(err, "unable to marshal new resource config")
 		return err
 	}
-	path := getAbsRepoPath(cr.Dir, event)
-	if cr.StorageMode == StorageModeDisk {
-		if _, err := os.Stat(path); os.IsNotExist(err) {
-			os.Mkdir(path, 0700)
-		}
-		path += getFileName(event)
-		if err := ioutil.WriteFile(path, y, 0644); err != nil {
-			klog.ErrorS(err, "unable to write/update file in repository")
-			return err
-		}
-	} else {
-		path += getFileName(event)
-		newfile, err := cr.Fs.Create(path)
-		if err != nil {
-			klog.ErrorS(err, "unable to create file at: ", "path", path)
-			return err
-		}
-		newfile.Write(y)
-		newfile.Close()
+	path := getAbsRepoPath("", event)
+	path += getFileName(event)
+	newfile, err := cr.Fs.Create(path)
+	if err != nil {
+		klog.ErrorS(err, "unable to create file at: ", "path", path)
+		return err
 	}
+	newfile.Write(y)
+	newfile.Close()
 	return nil
 }
 
