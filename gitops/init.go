@@ -213,7 +213,7 @@ func (cr *CustomRepo) writeFileToPath(path string, yaml []byte) error {
 	if err != nil {
 		return fmt.Errorf("unable to write resource config to file: %w", err)
 	}
+	defer newFile.Close()
 	newFile.Write(yaml)
-	newFile.Close()
 	return nil
 }
