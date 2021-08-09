@@ -17,6 +17,7 @@ package gitops
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"sync"
 
 	"github.com/ghodss/yaml"
@@ -132,9 +133,9 @@ func setupStorage(dir string, mode StorageModeType) (storage.Storer, billy.Files
 		if dir == "" {
 			dir, _ = os.Getwd()
 		}
-		dir += "/resource-auditing-repo/"
+		dir = filepath.Join(dir, "resource-auditing-repo")
 		worktreeFs = osfs.New(dir)
-		storerFs = osfs.New(dir + "/.git")
+		storerFs = osfs.New(filepath.Join(dir, ".git"))
 		storer = filesystem.NewStorage(storerFs, cache.NewObjectLRUDefault())
 	} else if mode == StorageModeInMemory {
 		worktreeFs = memfs.New()
@@ -151,7 +152,7 @@ func (cr *CustomRepo) createRepo(storer storage.Storer) (*git.Repository, error)
 		r, _ := git.Open(storer, cr.Fs)
 		return r, err
 	} else if err != nil {
-		return nil, fmt.Errorf("unable to initialize git repo %w: ", err)
+		return nil, fmt.Errorf("unable to initialize git repo: %w", err)
 	}
 	return r, nil
 }

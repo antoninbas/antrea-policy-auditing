@@ -56,8 +56,8 @@ func (cr *CustomRepo) modifyFile(event auditv1.Event) error {
 		klog.ErrorS(err, "unable to create file at: ", "path", path)
 		return err
 	}
+	defer newfile.Close()
 	newfile.Write(y)
-	newfile.Close()
 	return nil
 }
 
