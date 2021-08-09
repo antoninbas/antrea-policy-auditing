@@ -1,7 +1,6 @@
 package test
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"testing"
@@ -20,6 +19,7 @@ import (
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -195,10 +195,8 @@ func TestRollback(t *testing.T) {
 		Version: "v1",
 		Kind:    "NetworkPolicy",
 	})
-	j, err := json.Marshal(np2)
-	assert.NoError(t, err, "unable to convert to json")
-	err = json.Unmarshal(j, &r)
-	assert.NoError(t, err, "unable to unmarshal into unstructured object")
+	r.Object, err = runtime.DefaultUnstructuredConverter.ToUnstructured(np2)
+	assert.NoError(t, err, "unable to convert typed to unstructured object")
 	err = k8s.CreateOrUpdateResource(&r)
 	assert.NoError(t, err, "unable to create new resource")
 
@@ -210,10 +208,8 @@ func TestRollback(t *testing.T) {
 		Version: "v1",
 		Kind:    "NetworkPolicy",
 	})
-	j, err = json.Marshal(updatedNP)
-	assert.NoError(t, err, "unable to convert to json")
-	err = json.Unmarshal(j, &r)
-	assert.NoError(t, err, "unable to unmarshal into structured object")
+	r.Object, err = runtime.DefaultUnstructuredConverter.ToUnstructured(updatedNP)
+	assert.NoError(t, err, "unable to convert typed to unstructured object")
 	err = k8s.CreateOrUpdateResource(&r)
 	assert.NoError(t, err, "unable to update new resource")
 
@@ -223,10 +219,8 @@ func TestRollback(t *testing.T) {
 		Version: "v1alpha1",
 		Kind:    "NetworkPolicy",
 	})
-	j, err = json.Marshal(anp1)
-	assert.NoError(t, err, "unable to convert to json")
-	err = json.Unmarshal(j, &r)
-	assert.NoError(t, err, "unable to unmarshal into structured object")
+	r.Object, err = runtime.DefaultUnstructuredConverter.ToUnstructured(anp1)
+	assert.NoError(t, err, "unable to convert typed to unstructured object")
 	err = k8s.DeleteResource(&r)
 	assert.NoError(t, err, "unable to delete resource")
 
